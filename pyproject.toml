@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = [
   { name="Belinda Mo", email="justanexperimentpark@gmail.com" },
 ]
-description = "Extract a knowledge graph using LLMs from any short-form text, long-form text, or chat messages"
+description = "Extract a knowledge graph using LLMs from any text or messages array"
 readme = "README.md"
 requires-python = ">=3.10, <4.0"
 classifiers = [
@@ -17,5 +17,5 @@ classifiers = [
 license = {text = "MIT"}
 
 [project.urls]
-Homepage = "https://github.com/belindamo/kg-gen"
-Issues = "https://github.com/belindamo/kg-gen/issues"
+Homepage = "https://github.com/stair-lab/kg-gen"
+Issues = "https://github.com/stair-lab/kg-gen/issues"

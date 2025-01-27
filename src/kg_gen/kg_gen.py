@@ -31,19 +31,15 @@ class Graph(BaseModel):
 # ~~~ KGGEN ~~~
 
 class KGGen:
-  def __init__(self, api_key: str):
-    """Initialize KGGen with OpenAI API key.
-    
-    Args:
-        api_key (str): OpenAI API key for making model calls
-    """
-    self.api_key = api_key
+  def __init__(self):
+    """Initialize KGGen"""
     self.dspy = dspy
     
   def generate(
     self,
     input_data: Union[str, List[Dict]],
     model: str,
+    api_key: str = None,
     context: Optional[str] = None,
     example_relations: Optional[Union[
       List[Tuple[str, str, str]],
@@ -60,6 +56,7 @@ class KGGen:
     Args:
         input_data: Text string or list of message dicts
         model: Name of OpenAI model to use
+        api_key (str): OpenAI API key for making model calls
         chunk_size: Max size of text chunks to process
         context: Description of data context
         example_relations: Example relationship tuples
@@ -75,17 +72,33 @@ class KGGen:
     if chunk_size  or node_labels or edge_labels or ontology or example_relations or context:
       raise ValueError("chunk_size, node_labels, edge_labels, ontology, or example_relations are not supported parameters yet")
     
-    # TODO
-    if isinstance(input_data, list):
-      raise ValueError("Message array input_data is not supported yet")
-    
-    self.lm = dspy.LM(f'openai/{model}', api_key=self.api_key)
+    # Process input data
+    is_conversation = isinstance(input_data, list)
+    if is_conversation:
+      # Extract text from messages
+      text_content = []
+      for message in input_data:
+        if not isinstance(message, dict) or 'role' not in message or 'content' not in message:
+          raise ValueError("Messages must be dicts with 'role' and 'content' keys")
+        if message['role'] in ['user', 'assistant']:
+          text_content.append(f"{message['role']}: {message['content']}")
+      
+      # Join with newlines to preserve message boundaries
+      processed_input = "\n".join(text_content)
+    else:
+      processed_input = input_data
+
+    self.api_key = api_key
+    self.model = model
+    if self.api_key:
+      self.lm = dspy.LM(model=self.model, api_key=self.api_key)
+    else:
+      self.lm = dspy.LM(model=self.model)
+      
     self.dspy.configure(lm=self.lm)
     
-    # relations = get_relations(entities)
-    entities = get_entities(self.dspy, input_data)
-    relations = get_relations(self.dspy, input_data, entities)
-    
+    entities = get_entities(self.dspy, processed_input, is_conversation=is_conversation)
+    relations = get_relations(self.dspy, processed_input, entities, is_conversation=is_conversation)
     
     graph = Graph(
       entities = entities,
