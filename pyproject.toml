@@ -1,6 +1,6 @@
 [project]
 name = "t2kg"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
   { name="Belinda Mo", email="justanexperimentpark@gmail.com" },
 ]
@@ -15,6 +15,11 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 license = {text = "MIT"}
+dependencies = [
+    "dspy-ai",
+    "nltk",
+    "pydantic>=2.0.0"
+]
 
 [project.urls]
 Homepage = "https://github.com/stair-lab/t2kg"

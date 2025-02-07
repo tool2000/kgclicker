@@ -1,5 +1,4 @@
 from typing import Union, List, Dict, Optional
-from openai import OpenAI
 
 from .steps._1_get_entities import get_entities
 from .steps._2_get_relations import get_relations

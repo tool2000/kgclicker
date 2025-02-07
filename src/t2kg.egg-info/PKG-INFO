@@ -1,3 +1,22 @@
+Metadata-Version: 2.2
+Name: t2kg
+Version: 0.0.3
+Summary: Extract a knowledge graph using LLMs from any text or messages array
+Author-email: Belinda Mo <justanexperimentpark@gmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/stair-lab/t2kg
+Project-URL: Issues, https://github.com/stair-lab/t2kg/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <4.0,>=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: dspy-ai
+Requires-Dist: nltk
+Requires-Dist: pydantic>=2.0.0
+
 # t2kg: Knowledge Graph Generation from Any Text
 
 Welcome! `t2kg` helps you generate knowledge graphs from any source text using AI. It can process both small and large text inputs, and it can also handle messages in a conversation format.
@@ -162,6 +181,34 @@ graph1 = kg.generate(input_data=text1)
 graph2 = kg.generate(input_data=text2)
 combined_graph = kg.aggregate([graph1, graph2])
 ```
+
+### Message Array Processing
+When processing message arrays, t2kg:
+1. Preserves the role information from each message
+2. Maintains message order and boundaries
+3. Can extract entities and relationships:
+   - Between concepts mentioned in messages
+   - Between speakers (roles) and concepts
+   - Across multiple messages in a conversation
+
+For example, given this conversation:
+```python
+messages = [
+  {"role": "user", "content": "What is the capital of France?"},
+  {"role": "assistant", "content": "The capital of France is Paris."}
+]
+```
+
+The generated graph might include entities like:
+- "user"
+- "assistant" 
+- "France"
+- "Paris"
+
+And relations like:
+- (user, "asks about", "France")
+- (assistant, "states", "Paris")
+- (Paris, "is capital of", "France")
 
 ## API Reference
 
