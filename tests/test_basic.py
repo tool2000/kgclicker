@@ -1,4 +1,4 @@
-from src.kg_gen import KGGen
+from src.t2kg import T2KG
 import os
 from dotenv import load_dotenv
 
@@ -7,7 +7,7 @@ if __name__ == "__main__":
   load_dotenv()
   
   # Example usage
-  kg = KGGen()
+  kg = T2KG()
   
   # Generate a simple graph
   text = "Linda is Josh's mother. Ben is Josh's brother. Andrew is Josh's father. Judy is Andrew's sister. Josh is Judy's nephew. Judy is Josh's aunt." # text option

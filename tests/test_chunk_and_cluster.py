@@ -1,4 +1,4 @@
-from src.kg_gen import KGGen
+from src.t2kg import T2KG
 import os
 from dotenv import load_dotenv
 
@@ -7,16 +7,21 @@ if __name__ == "__main__":
   load_dotenv()
   
   # Example usage
-  kg = KGGen()
+  kg = T2KG()
   
   # Load fresh wiki content
   with open('tests/data/fresh_wiki_article.md', 'r', encoding='utf-8') as f:
     text = f.read()
-  
-  # Generate graph from wiki text
+    
+  # # Generate graph from wiki text with chunking
   graph = kg.generate(
     input_data=text,
     model="openai/gpt-4o",
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key=os.getenv("OPENAI_API_KEY"),
+    chunk_size=5000,
+    cluster=True
   )
-  print(graph)
+  print("Entities:", graph.entities)
+  print("Edges:", graph.edges) 
+  print("Relations:", graph.relations)
+  

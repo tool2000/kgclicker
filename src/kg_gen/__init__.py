@@ -1,1 +1,0 @@
-from .kg_gen import KGGen 
