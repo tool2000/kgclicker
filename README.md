@@ -8,7 +8,7 @@ Why generate knowledge graphs? `kg-gen` is great if you want to:
 - Structure any text into a graph 
 - Analyze the relationships between concepts in your source text
 
-We support all model providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers). We also use [DSPy](https://dspy.ai/) for structured output generation.
+We support API-based and local model providers via [LiteLLM](https://docs.litellm.ai/docs/providers), including OpenAI, Ollama, Anthropic, Gemini, Deepseek, and others. We also use [DSPy](https://dspy.ai/) for structured output generation.
 
 - Try it out by running the scripts in [`tests/`](https://github.com/stair-lab/kg-gen/tree/main/tests).
 - Instructions to run our KG benchmark MINE are in [`MINE/`](https://github.com/stair-lab/kg-gen/tree/main/MINE).
