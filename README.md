@@ -1,8 +1,8 @@
-# t2kg: Knowledge Graph Generation from Any Text
+# kg-gen: Knowledge Graph Generation from Any Text
 
-Welcome! `t2kg` helps you generate knowledge graphs from any source text using AI. It can process both small and large text inputs, and it can also handle messages in a conversation format.
+Welcome! `kg-gen` helps you extract knowledge graphs from any plain text using AI. It can process both small and large text inputs, and it can also handle messages in a conversation format.
 
-Why generate knowledge graphs? `t2kg` is great if you want to:
+Why generate knowledge graphs? `kg-gen` is great if you want to:
 - Create a graph to assist with RAG (Retrieval-Augmented Generation)
 - Create graph synthetic data for model training and testing
 - Structure any text into a graph 
@@ -10,23 +10,27 @@ Why generate knowledge graphs? `t2kg` is great if you want to:
 
 We support all model providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers). We also use [DSPy](https://dspy.ai/) for structured output generation.
 
+- Try it out by running the scripts in [`tests/`](https://github.com/stair-lab/kg-gen/tree/main/tests).
+- Instructions to run our KG benchmark MINE are in [`MINE/`](https://github.com/stair-lab/kg-gen/tree/main/MINE).
+- Read the paper: [KGGen: Extracting Knowledge Graphs from Plain Text with Language Models](https://arxiv.org/abs/2502.09956)
+
 ## Quick start
 
 Install the module:
 ```bash
-pip install t2kg
+pip install kg-gen
 ```
 
-Then import and use `t2kg`. You can provide your text input in one of two formats:
+Then import and use `kg-gen`. You can provide your text input in one of two formats:
 1. A single string  
 2. A list of Message objects (each with a role and content)
 
 Below are some example snippets:
 ```python
-from t2kg import T2KG
+from kg_gen import KGGen
 
-# Initialize T2KG with optional configuration
-kg = T2KG(
+# Initialize KGGen with optional configuration
+kg = KGGen(
   model="openai/gpt-4o",  # Default model
   temperature=0.0,        # Default temperature
   api_key="YOUR_API_KEY"  # Optional if set in environment
@@ -163,9 +167,37 @@ graph2 = kg.generate(input_data=text2)
 combined_graph = kg.aggregate([graph1, graph2])
 ```
 
+### Message Array Processing
+When processing message arrays, kg-gen:
+1. Preserves the role information from each message
+2. Maintains message order and boundaries
+3. Can extract entities and relationships:
+   - Between concepts mentioned in messages
+   - Between speakers (roles) and concepts
+   - Across multiple messages in a conversation
+
+For example, given this conversation:
+```python
+messages = [
+  {"role": "user", "content": "What is the capital of France?"},
+  {"role": "assistant", "content": "The capital of France is Paris."}
+]
+```
+
+The generated graph might include entities like:
+- "user"
+- "assistant" 
+- "France"
+- "Paris"
+
+And relations like:
+- (user, "asks about", "France")
+- (assistant, "states", "Paris")
+- (Paris, "is capital of", "France")
+
 ## API Reference
 
-### T2KG Class
+### KGGen Class
 
 #### Constructor Parameters
 - `model`: str = "openai/gpt-4o" - The model to use for generation

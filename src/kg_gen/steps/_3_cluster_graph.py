@@ -162,7 +162,7 @@ def cluster_graph(dspy: dspy.dspy, graph: Graph, context: str = "") -> Graph:
 
 if __name__ == "__main__":
   import os
-  from ..t2kg import KGGen
+  from ..kg_gen import KGGen
   
   model = "openai/gpt-4o"
   api_key = os.getenv("OPENAI_API_KEY")

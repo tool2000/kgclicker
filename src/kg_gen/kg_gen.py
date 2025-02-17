@@ -1,4 +1,5 @@
 from typing import Union, List, Dict, Optional
+from openai import OpenAI
 
 from .steps._1_get_entities import get_entities
 from .steps._2_get_relations import get_relations
@@ -10,14 +11,14 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
   
-class T2KG:
+class KGGen:
   def __init__(
     self,
     model: str = "openai/gpt-4o",
     temperature: float = 0.0,
     api_key: str = None
   ):
-    """Initialize T2KG with optional model configuration
+    """Initialize KGGen with optional model configuration
     
     Args:
         model: Name of model to use (e.g. 'gpt-4')

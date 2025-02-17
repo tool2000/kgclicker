@@ -1,4 +1,4 @@
-from src.t2kg import T2KG
+from src.kg_gen import KGGen
 import os
 from dotenv import load_dotenv
 
@@ -6,8 +6,8 @@ if __name__ == "__main__":
   # Load environment variables
   load_dotenv()
   
-  # Initialize T2KG
-  kg = T2KG()
+  # Initialize KGGen
+  kg = KGGen()
   
   # Test texts
   text1 = "Linda is Joshua's mother. Ben is Josh's brother. Andrew is Josh's father."

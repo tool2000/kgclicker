@@ -1,4 +1,4 @@
-from src.t2kg import T2KG
+from src.kg_gen import KGGen
 import os
 from dotenv import load_dotenv
 
@@ -7,7 +7,7 @@ if __name__ == "__main__":
   load_dotenv()
   
   # Example usage
-  kg = T2KG()
+  kg = KGGen()
   
   # Generate a simple graph from conversation
   messages = [

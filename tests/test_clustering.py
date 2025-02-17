@@ -1,6 +1,6 @@
 import pytest
-from t2kg.t2kg import T2KG
-from t2kg.models import Graph
+from kg_gen.kg_gen import KGGen
+from kg_gen.models import Graph
 import dspy
 import os
 
@@ -11,7 +11,7 @@ TEST_API_KEY = os.getenv("OPENAI_API_KEY", "dummy-key")
 
 def test_basic_clustering():
   # Test with initialization-time configuration
-  kg_gen = T2KG(
+  kg_gen = KGGen(
     model=TEST_MODEL,
     temperature=TEST_TEMP,
     api_key=TEST_API_KEY
@@ -82,7 +82,7 @@ def test_basic_clustering():
 
 def test_method_level_configuration():
   # Initialize without configuration
-  kg_gen = T2KG()
+  kg_gen = KGGen()
   
   graph = Graph(
     entities={"cat", "cats", "dog", "dogs"},
@@ -107,7 +107,7 @@ def test_method_level_configuration():
   assert clustered.edge_clusters is not None
   
 def test_case_sensitivity_clustering():
-  kg_gen = T2KG(
+  kg_gen = KGGen(
     model=TEST_MODEL,
     temperature=TEST_TEMP,
     api_key=TEST_API_KEY
@@ -162,7 +162,7 @@ def test_case_sensitivity_clustering():
   assert found_reads
 
 def test_semantic_clustering():
-  kg_gen = T2KG(
+  kg_gen = KGGen(
     model=TEST_MODEL,
     temperature=TEST_TEMP,
     api_key=TEST_API_KEY
@@ -205,7 +205,7 @@ def test_semantic_clustering():
   assert found_positive and found_negative
 
 def test_no_invalid_clustering():
-  kg_gen = T2KG(
+  kg_gen = KGGen(
     model=TEST_MODEL,
     temperature=TEST_TEMP,
     api_key=TEST_API_KEY
@@ -250,7 +250,7 @@ def test_no_invalid_clustering():
     assert found
 
 def test_empty_graph_clustering():
-  kg_gen = T2KG(
+  kg_gen = KGGen(
     model=TEST_MODEL,
     temperature=TEST_TEMP,
     api_key=TEST_API_KEY
@@ -267,7 +267,7 @@ def test_empty_graph_clustering():
   assert clustered.edge_clusters == {}
 
 def test_single_item_clustering():
-  kg_gen = T2KG(
+  kg_gen = KGGen(
     model=TEST_MODEL,
     temperature=TEST_TEMP,
     api_key=TEST_API_KEY
@@ -309,7 +309,7 @@ def test_single_item_clustering():
 
 def test_configuration_override():
   # Initialize with one set of configurations
-  kg_gen = T2KG(
+  kg_gen = KGGen(
     model=TEST_MODEL,
     temperature=0.0,
     api_key=TEST_API_KEY
@@ -335,7 +335,7 @@ def test_configuration_override():
   assert clustered.edge_clusters is not None
 
 def test_large_scale_clustering():
-  kg_gen = T2KG(
+  kg_gen = KGGen(
     model=TEST_MODEL,
     temperature=TEST_TEMP,
     api_key=TEST_API_KEY
@@ -428,7 +428,7 @@ def test_large_scale_clustering():
     assert found_valid_cluster, f"Failed to find valid cluster for action group: {group}"
 
 def test_clustering_with_context():
-  kg_gen = T2KG(
+  kg_gen = KGGen(
     model=TEST_MODEL,
     temperature=TEST_TEMP,
     api_key=TEST_API_KEY

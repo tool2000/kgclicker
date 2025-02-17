@@ -1,6 +1,6 @@
 [project]
-name = "t2kg"
-version = "0.0.3"
+name = "kg-gen"
+version = "0.0.4"
 authors = [
   { name="Belinda Mo", email="justanexperimentpark@gmail.com" },
 ]
@@ -22,5 +22,5 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/stair-lab/t2kg"
-Issues = "https://github.com/stair-lab/t2kg/issues"
+Homepage = "https://github.com/stair-lab/kg-gen"
+Issues = "https://github.com/stair-lab/kg-gen/issues"
