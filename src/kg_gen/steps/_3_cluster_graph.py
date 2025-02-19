@@ -38,7 +38,7 @@ class CheckExistingClusters(dspy.Signature):
   items: list[str] = dspy.InputField()
   clusters: dict[str, set[str]] = dspy.InputField(desc="Mapping of cluster representatives to their cluster members")
   context: str = dspy.InputField(desc="the larger context in which the items appear")
-  cluster_reps_that_items_belong_to: list[Optional[str]] = dspy.OutputField(desc="ordered list of cluster representatives where each is the cluster where that item belongs to, or None if no match. list is same length as items list")
+  cluster_reps_that_items_belong_to: list[Optional[str]] = dspy.OutputField(desc="ordered list of cluster representatives where each is the cluster where that item belongs to, or None if no match. THIS LIST LENGTH IS SAME AS ITEMS LIST LENGTH")
 
 
 def cluster_items(dspyi: dspy.dspy, items: set[str], item_type: str = "entities", context: str = "") -> tuple[set[str], dict[str, set[str]]]:
@@ -95,19 +95,18 @@ def cluster_items(dspyi: dspy.dspy, items: set[str], item_type: str = "entities"
       cluster_reps = c_result.cluster_reps_that_items_belong_to  
       
       # Process each item with its corresponding representative
-      for item, rep in zip(batch, cluster_reps):
+      for i, item in enumerate(batch):
+        rep = cluster_reps[i] if i < len(cluster_reps) else None
         if rep is not None and rep in clusters:
           new_cluster = clusters[rep] | {item}
           v_result = validate(cluster=new_cluster, context=context)
           validated_items = v_result.validated_items
-          
           if len(validated_items) == len(clusters[rep]) + 1:
             clusters[rep].add(item)
-          else: 
+          else:
             clusters[item] = {item}
         else:
           clusters[item] = {item}
-  
   new_items = set(clusters.keys())
   
   return new_items, clusters
@@ -170,6 +169,43 @@ if __name__ == "__main__":
     print("Please set OPENAI_API_KEY environment variable")
     exit(1)
     
+  # Example with pets and animals
+  # kg_gen = KGGen(
+  #   model=model,
+  #   temperature=0.0,
+  #   api_key=api_key
+  # )
+  # graph = Graph(
+  #   entities={
+  #     "cat", "cats", "dog", "dogs", "mouse", "mice", "fish", "fishes",
+  #     "bird", "birds", "hamster", "hamsters", "person", "people",
+  #     "owner", "owners", "vet", "veterinarian", "food", "treats"
+  #   },
+  #   edges={
+  #     "like", "likes", "love", "loves", "eat", "eats", 
+  #     "chase", "chases", "feed", "feeds", "care for", "cares for",
+  #     "visit", "visits", "play with", "plays with"
+  #   },
+  #   relations={
+  #     ("cat", "likes", "fish"),
+  #     ("cats", "love", "mice"),
+  #     ("dog", "chases", "cat"),
+  #     ("dogs", "chase", "birds"),
+  #     ("mouse", "eats", "food"),
+  #     ("mice", "eat", "treats"),
+  #     ("person", "feeds", "cat"),
+  #     ("people", "feed", "dogs"),
+  #     ("owner", "cares for", "hamster"),
+  #     ("owners", "care for", "hamsters"),
+  #     ("vet", "visits", "dog"),
+  #     ("veterinarian", "visit", "cats"),
+  #     ("bird", "plays with", "fish"),
+  #     ("birds", "play with", "fishes")
+  #   }
+  # )
+  
+
+  # Example with family relationships
   kg_gen = KGGen(
     model=model,
     temperature=0.0,
@@ -177,30 +213,21 @@ if __name__ == "__main__":
   )
   graph = Graph(
     entities={
-      "cat", "cats", "dog", "dogs", "mouse", "mice", "fish", "fishes",
-      "bird", "birds", "hamster", "hamsters", "person", "people",
-      "owner", "owners", "vet", "veterinarian", "food", "treats"
+      "Linda", "Joshua", "Josh", "Ben", "Andrew", "Judy"
     },
     edges={
-      "like", "likes", "love", "loves", "eat", "eats", 
-      "chase", "chases", "feed", "feeds", "care for", "cares for",
-      "visit", "visits", "play with", "plays with"
+      "is mother of", "is brother of", "is father of",
+      "is sister of", "is nephew of", "is aunt of",
+      "is same as"
     },
     relations={
-      ("cat", "likes", "fish"),
-      ("cats", "love", "mice"),
-      ("dog", "chases", "cat"),
-      ("dogs", "chase", "birds"),
-      ("mouse", "eats", "food"),
-      ("mice", "eat", "treats"),
-      ("person", "feeds", "cat"),
-      ("people", "feed", "dogs"),
-      ("owner", "cares for", "hamster"),
-      ("owners", "care for", "hamsters"),
-      ("vet", "visits", "dog"),
-      ("veterinarian", "visit", "cats"),
-      ("bird", "plays with", "fish"),
-      ("birds", "play with", "fishes")
+      ("Linda", "is mother of", "Joshua"),
+      ("Ben", "is brother of", "Josh"),
+      ("Andrew", "is father of", "Josh"),
+      ("Judy", "is sister of", "Andrew"),
+      ("Josh", "is nephew of", "Judy"),
+      ("Judy", "is aunt of", "Josh"),
+      ("Josh", "is same as", "Joshua")
     }
   )
   
