@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: kg-gen
-Version: 0.1.2
+Version: 0.1.3
 Summary: Extract a knowledge graph using LLMs from any text or messages array
 Author-email: Belinda Mo <justanexperimentpark@gmail.com>
 License: MIT
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <4.0,>=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: dspy-ai
+Requires-Dist: dspy
 Requires-Dist: nltk
 Requires-Dist: pydantic>=2.0.0
 
@@ -27,7 +27,7 @@ Why generate knowledge graphs? `kg-gen` is great if you want to:
 - Structure any text into a graph 
 - Analyze the relationships between concepts in your source text
 
-We support all model providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers). We also use [DSPy](https://dspy.ai/) for structured output generation.
+We support API-based and local model providers via [LiteLLM](https://docs.litellm.ai/docs/providers), including OpenAI, Ollama, Anthropic, Gemini, Deepseek, and others. We also use [DSPy](https://dspy.ai/) for structured output generation.
 
 - Try it out by running the scripts in [`tests/`](https://github.com/stair-lab/kg-gen/tree/main/tests).
 - Instructions to run our KG benchmark MINE are in [`MINE/`](https://github.com/stair-lab/kg-gen/tree/main/MINE).
