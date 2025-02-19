@@ -1,8 +1,9 @@
 import pytest
-from kg_gen.kg_gen import KGGen
-from kg_gen.models import Graph
+from src.kg_gen import KGGen
+from src.kg_gen.models import Graph
 import dspy
 import os
+
 
 # Test configurations
 TEST_MODEL = "openai/gpt-4o"
