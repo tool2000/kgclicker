@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: kg-gen
-Version: 0.1.3
+Version: 0.1.4
 Summary: Extract a knowledge graph using LLMs from any text or messages array
 Author-email: Belinda Mo <justanexperimentpark@gmail.com>
 License: MIT

@@ -16,6 +16,7 @@ src/kg_gen/steps/__init__.py
 src/kg_gen/utils/__init__.py
 src/kg_gen/utils/chunk_text.py
 tests/test_basic.py
+tests/test_basic_2.py
 tests/test_basic_convo.py
 tests/test_chunk_and_cluster.py
 tests/test_chunked.py
