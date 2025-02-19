@@ -95,8 +95,6 @@ class KGGen:
     Returns:
         Generated knowledge graph
     """
-    # if chunk_size  or node_labels or edge_labels or ontology or example_relations or context:
-    #   raise ValueError("chunk_size, node_labels, edge_labels, ontology, or example_relations are not supported parameters yet")
     
     # Process input data
     is_conversation = isinstance(input_data, list)

@@ -10,7 +10,7 @@ class Graph(BaseModel):
   edge_clusters: Optional[dict[str, set[str]]] = None
 
   @model_validator(mode='after')
-  def validate_entities_in_relations(self) -> 'Graph':
+  def validate_consistency(self) -> 'Graph':
     entities = set(self.entities)
     edges = set(self.edges)
     # Validate relations
