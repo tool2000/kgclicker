@@ -131,6 +131,10 @@ clustered_graph = kg.cluster(
 # }
 # edge_clusters={ ... }
 ```
+## Model Providers
+
+We support models via LiteLLM. Check out how to pass in your desired model here: https://docs.litellm.ai/docs/providers
+
 ## Features
 
 ### Chunking Large Texts
