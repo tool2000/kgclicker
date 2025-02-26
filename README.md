@@ -14,6 +14,15 @@ We support API-based and local model providers via [LiteLLM](https://docs.litell
 - Instructions to run our KG benchmark MINE are in [`MINE/`](https://github.com/stair-lab/kg-gen/tree/main/MINE).
 - Read the paper: [KGGen: Extracting Knowledge Graphs from Plain Text with Language Models](https://arxiv.org/abs/2502.09956)
 
+## Powered by a model of your choice
+
+Pass in a `model` string to use a model of your choice. Model calls are routed via LiteLLM, and usually LiteLLM goes by the format of `{model_provider}/{model_name}`. See specifically how to format it at [https://docs.litellm.ai/docs/providers](https://docs.litellm.ai/docs/providers).
+
+Examples of models you can pass in:
+- `openai/gpt-4o`
+- `gemini/gemini-2.0-flash`
+- `ollama_chat/deepseek-r1:14b`
+
 ## Quick start
 
 Install the module:
@@ -131,10 +140,6 @@ clustered_graph = kg.cluster(
 # }
 # edge_clusters={ ... }
 ```
-## Model Providers
-
-We support models via LiteLLM. Check out how to pass in your desired model here: https://docs.litellm.ai/docs/providers
-
 ## Features
 
 ### Chunking Large Texts
