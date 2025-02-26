@@ -57,7 +57,11 @@ graph_1 = kg.generate(
 # relations={('Ben', 'is brother of', 'Josh'), 
 #           ('Andrew', 'is father of', 'Josh'), 
 #           ('Linda', 'is mother of', 'Josh')}
+```
 
+### More Examples - chunking, clustering, passing in a messages array 
+
+```
 # EXAMPLE 2: Large text with chunking and clustering
 with open('large_text.txt', 'r') as f:
   large_text = f.read()
@@ -140,6 +144,7 @@ clustered_graph = kg.cluster(
 # }
 # edge_clusters={ ... }
 ```
+
 ## Features
 
 ### Chunking Large Texts
