@@ -42,7 +42,7 @@ from kg_gen import KGGen
 kg = KGGen(
   model="openai/gpt-4o",  # Default model
   temperature=0.0,        # Default temperature
-  api_key="YOUR_API_KEY"  # Optional if set in environment
+  api_key="YOUR_API_KEY"  # Optional if set in environment or using a local model
 )
 
 # EXAMPLE 1: Single string with context
