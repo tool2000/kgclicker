@@ -9,11 +9,11 @@ class Graph(BaseModel):
   entity_clusters: Optional[dict[str, set[str]]] = None
   edge_clusters: Optional[dict[str, set[str]]] = None
 
-  # @model_validator(mode='after')
-  # def validate_consistency(self) -> 'Graph':
+  @model_validator(mode='after')
+  def validate_consistency(self) -> 'Graph':
     # TODO: examine
-    # entities = set(self.entities)
-    # edges = set(self.edges)
+    entities = set(self.entities)
+    edges = set(self.edges)
     # # Validate relations
     # for subj, pred, obj in self.relations:
     #   if subj not in entities:
@@ -24,20 +24,20 @@ class Graph(BaseModel):
     #     raise ValueError(f"Relation pred '{pred}' not edges")
         
     # Validate entity clusters
-    # if self.entity_clusters:
-    #   for key, values in self.entity_clusters.items():
-    #     if key not in entities:
-    #       raise ValueError(f"Entity cluster key '{key}' not in entities")
-    #     for value in values:
-    #       if value in entities and value != key:
-    #         raise ValueError(f"Entity cluster value '{value}' appears in entities but is not the cluster key")
+    if self.entity_clusters:
+      for key, values in self.entity_clusters.items():
+        if key not in entities:
+          raise ValueError(f"Entity cluster key '{key}' not in entities")
+        for value in values:
+          if value in entities and value != key:
+            raise ValueError(f"Entity cluster value '{value}' appears in entities but is not the cluster key")
           
     # # Validate edge clusters  
-    # if self.edge_clusters:
-    #   for key, values in self.edge_clusters.items():
-    #     if key not in edges:
-    #       raise ValueError(f"Edge cluster key '{key}' not in edges")
-    #     for value in values:
-    #       if value in edges and value != key:
-    #         raise ValueError(f"Edge cluster value '{value}' appears in edges but is not the cluster key")
-    # return self
+    if self.edge_clusters:
+      for key, values in self.edge_clusters.items():
+        if key not in edges:
+          raise ValueError(f"Edge cluster key '{key}' not in edges")
+        for value in values:
+          if value in edges and value != key:
+            raise ValueError(f"Edge cluster value '{value}' appears in edges but is not the cluster key")
+    return self
