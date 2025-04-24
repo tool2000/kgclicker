@@ -1,6 +1,6 @@
 [project]
 name = "kg-gen"
-version = "0.1.4"
+version = "0.1.6"
 authors = [
   { name="Belinda Mo", email="justanexperimentpark@gmail.com" },
 ]
@@ -16,7 +16,7 @@ classifiers = [
 ]
 license = {text = "MIT"}
 dependencies = [
-    "dspy",
+    "dspy==2.6.19",
     "nltk",
     "pydantic>=2.0.0"
 ]
