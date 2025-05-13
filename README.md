@@ -23,6 +23,8 @@ Examples of models you can pass in:
 - `gemini/gemini-2.0-flash`
 - `ollama_chat/deepseek-r1:14b`
 
+You may specify a custom API base url with `base_url` ([example here](tests/test_custom_api_base.py)).
+
 ## Quick start
 
 Install the module:
