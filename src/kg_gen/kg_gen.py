@@ -72,6 +72,7 @@ class KGGen:
     input_data: Union[str, List[Dict]],
     model: str = None,
     api_key: str = None,
+    api_base: str = None,
     context: str = "",
     # example_relations: Optional[Union[
     #   List[Tuple[str, str, str]],
@@ -119,11 +120,13 @@ class KGGen:
     else:
       processed_input = input_data
 
-    if any([model, temperature, api_key]):
+    # Reinitialize dspy with new parameters if any are provided
+    if any([model, temperature, api_key, api_base]):
       self.init_model(
         model=model or self.model,
         temperature=temperature or self.temperature,
-        api_key=api_key or self.api_key
+        api_key=api_key or self.api_key,
+        api_base=api_base or self.api_base,
       )
 
     if not chunk_size:
@@ -179,13 +182,15 @@ class KGGen:
     model: str = None,
     temperature: float = None,
     api_key: str = None,
+    api_base: str = None
   ) -> Graph:
-    # Initialize dspy with new parameters if any are provided
-    if any([model, temperature, api_key]):
+    # Reinitialize dspy with new parameters if any are provided
+    if any([model, temperature, api_key, api_base]):
       self.init_model(
         model=model or self.model,
         temperature=temperature or self.temperature,
-        api_key=api_key or self.api_key
+        api_key=api_key or self.api_key,
+        api_base=api_base or self.api_base,
       )
 
     return cluster_graph(self.dspy, graph, context)
