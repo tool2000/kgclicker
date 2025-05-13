@@ -1,7 +1,12 @@
-**.env
-**venv
 **_packaging_tutorial**
-__pycache__/
+**__pycache__
 *.py[cod]
 *$py.class
 **scratch**
+**.env
+**venv
+**.DS_Store
+**dist
+**build
+**.egg-info
+tests/*.html
