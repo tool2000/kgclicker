@@ -145,6 +145,12 @@ clustered_graph = kg.cluster(
 # edge_clusters={ ... }
 ```
 
+## Install from this repository:
+
+Clone this repository and install dependencies using `pip install -e '.[dev]'`. 
+
+You may verify that it works by running `python tests/test_basic.py` from the root directory. This will also generate a nice visualization in `tests/test_basic.html`.
+
 ## Features
 
 ### Chunking Large Texts
