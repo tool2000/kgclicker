@@ -1,6 +1,6 @@
 from typing import List, Literal
 import dspy
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel
 
 def extraction_sig(Relation: BaseModel, is_conversation: bool, context: str = "") -> dspy.Signature:
   if not is_conversation:

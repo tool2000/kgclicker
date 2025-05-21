@@ -1,11 +1,7 @@
-#!/usr/bin/env python3
-
 import argparse
 import nltk
 
 # Ensure the punkt tokenizer is downloaded
-#nltk.download('punkt', quiet=True)
-#nltk.download('punkt_tab', quiet=True)
 def ensure_nltk_resource(resource_path, resource_name):
     try:
         nltk.data.find(resource_path)
