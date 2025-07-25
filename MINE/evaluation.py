@@ -49,9 +49,15 @@ def retrieve_context(node, graph, depth=2):
     def explore_neighbors(current_node, current_depth):
         if current_depth > depth:
             return
+        # Outgoing edges
         for neighbor in graph.neighbors(current_node):
             rel = graph[current_node][neighbor]["relation"]
             context.add(f"{current_node} {rel} {neighbor}.")
+            explore_neighbors(neighbor, current_depth + 1)
+        # Incoming edges
+        for neighbor in graph.predecessors(current_node):
+            rel = graph[neighbor][current_node]["relation"]
+            context.add(f"{neighbor} {rel} {current_node}.")
             explore_neighbors(neighbor, current_depth + 1)
     explore_neighbors(node, 1)
     return list(context)
@@ -80,16 +86,22 @@ def gpt_evaluate_response(correct_answer, context):
 
 # Evaluate accuracy
 def evaluate_accuracy(questions_answers, node_embeddings, model, graph, output_file):
+    print(f"Graph has {graph.number_of_nodes()} nodes and {graph.number_of_edges()} edges.")
     correct = 0
     results = []
 
     for qa in questions_answers:
         correct_answer = qa["answer"]
+        print(f"\nEvaluating answer: {correct_answer}")
         top_nodes = retrieve_relevant_nodes(correct_answer, node_embeddings, model)
+        print(f"Top nodes: {top_nodes}")
         context = set()
         for node, _ in top_nodes:
-            context.update(retrieve_context(node, graph))
+            node_context = retrieve_context(node, graph)
+            print(f"Context for node {node}: {node_context}")
+            context.update(node_context)
         context_text = " ".join(context)
+        print(f"Combined context: '{context_text}'\n---")
 
         evaluation = gpt_evaluate_response(correct_answer, context_text)
         results.append({
