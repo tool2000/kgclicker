@@ -86,9 +86,9 @@ def evaluate_accuracy(questions_answers, node_embeddings, model, graph, output_f
     for qa in questions_answers:
         correct_answer = qa["answer"]
         top_nodes = retrieve_relevant_nodes(correct_answer, node_embeddings, model)
-        context = []
+        context = set()
         for node, _ in top_nodes:
-            context.extend(retrieve_context(node, graph))
+            context.update(retrieve_context(node, graph))
         context_text = " ".join(context)
 
         evaluation = gpt_evaluate_response(correct_answer, context_text)
@@ -221,12 +221,21 @@ def main():
     # Initialize embedding model
     embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    for json_file, questions_answers in zip(json_files, all_questions_answers):
+    valid_pairs = [
+        (json_file, qa) 
+        for json_file, qa in zip(json_files, all_questions_answers) 
+        if os.path.exists(json_file)
+    ]
+
+    for json_file, questions_answers in valid_pairs:
         output_file = json_file.replace(".json", "_results.json")
         print(f"Processing file: {json_file}")
-        G = load_graph_from_json(json_file)
-        node_embeddings, _ = generate_embeddings(G, embedding_model)
-        evaluate_accuracy(questions_answers, node_embeddings, embedding_model, G, output_file)
-
+        try:
+            G = load_graph_from_json(json_file)
+            node_embeddings, _ = generate_embeddings(G, embedding_model)
+            evaluate_accuracy(questions_answers, node_embeddings, embedding_model, G, output_file)
+        except Exception as e:
+            print(f"Error processing file {json_file}: {str(e)}, skipping...")
+            continue
 if __name__ == "__main__":
     main()
