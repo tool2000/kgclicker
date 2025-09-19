@@ -24,11 +24,6 @@ dependencies = [
     "ty>=0.0.1a21",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pyvis==0.3.2"
-]
-
 [project.urls]
 Homepage = "https://github.com/stair-lab/kg-gen"
 Issues = "https://github.com/stair-lab/kg-gen/issues"
@@ -36,3 +31,10 @@ Issues = "https://github.com/stair-lab/kg-gen/issues"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pyvis>=0.3.2",
+    "typer>=0.17.4",
+    "wikipedia-api>=0.8.1",
+]
