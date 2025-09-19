@@ -20,6 +20,7 @@ dependencies = [
     "ty>=0.0.1a21",
     "dspy>=2.6.27",
     "openai>=1.108.1",
+    "pyvis>=0.3.2",
 ]
 
 [project.urls]
@@ -31,7 +32,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [dependency-groups]
-dev = ["pytest>=8.4.2", "pyvis>=0.3.2", "typer>=0.17.4", "wikipedia-api>=0.8.1"]
+dev = ["pytest>=8.4.2", "typer>=0.17.4", "wikipedia-api>=0.8.1"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
