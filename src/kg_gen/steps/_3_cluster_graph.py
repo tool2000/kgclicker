@@ -27,6 +27,70 @@ class Cluster(BaseModel):
     members: set[str]
 
 
+def get_extract_cluster_sig(items: set[str]) -> dspy.Signature:
+    ItemsLiteral = Literal[tuple(items)]
+
+    class ExtractCluster(dspy.Signature):
+        """Find one cluster of related items from the list.
+        A cluster should contain items that are the same in meaning, with different tenses, plural forms, stem forms, or cases.
+        Return populated list only if you find items that clearly belong together, else return empty list."""
+
+        items: set[ItemsLiteral] = dspy.InputField()
+        context: str = dspy.InputField(
+            desc="The larger context in which the items appear"
+        )
+        cluster: list[ItemsLiteral] = dspy.OutputField()
+
+    return ExtractCluster, ItemsLiteral
+
+
+def get_validate_cluster_sig(items: set[str]) -> dspy.Signature:
+    ClusterLiteral = Literal[tuple(items)]
+
+    class ValidateCluster(dspy.Signature):
+        """Validate if these items belong in the same cluster.
+        A cluster should contain items that are the same in meaning, with different tenses, plural forms, stem forms, or cases.
+        Return populated list only if you find items that clearly belong together, else return empty list."""
+
+        cluster: set[ClusterLiteral] = dspy.InputField()
+        context: str = dspy.InputField(
+            desc="The larger context in which the items appear"
+        )
+        validated_items: list[ClusterLiteral] = dspy.OutputField(
+            desc="All the items that belong together in the cluster"
+        )
+
+    return ValidateCluster, ClusterLiteral
+
+
+def get_check_existing_clusters_sig(
+    batch: set[str], clusters: list[Cluster]
+) -> Optional[dspy.Signature]:
+    if not clusters:
+        for item in batch:
+            clusters.append(Cluster(representative=item, members={item}))
+        return None
+
+    BatchLiteral = Literal[tuple(batch)]
+
+    class CheckExistingClusters(dspy.Signature):
+        """Determine if the given items can be added to any of the existing clusters.
+        Return representative of matching cluster for each item, or None if there is no match."""
+
+        items: list[BatchLiteral] = dspy.InputField()
+        clusters: list[Cluster] = dspy.InputField(
+            desc="Mapping of cluster representatives to their cluster members"
+        )
+        context: str = dspy.InputField(
+            desc="The larger context in which the items appear"
+        )
+        cluster_reps_that_items_belong_to: list[Optional[str]] = dspy.OutputField(
+            desc="Ordered list of cluster representatives where each is the cluster where that item belongs to, or None if no match. THIS LIST LENGTH IS SAME AS ITEMS LIST LENGTH"
+        )
+
+    return CheckExistingClusters
+
+
 def cluster_items(
     dspy: dspy, items: set[str], item_type: ItemType = "entities", context: str = ""
 ) -> tuple[set[str], dict[str, set[str]]]:
@@ -37,99 +101,51 @@ def cluster_items(
     clusters: list[Cluster] = []
     no_progress_count = 0
 
-    while len(remaining_items) > 0:
-        ItemsLiteral = Literal[tuple(items)]
-
-        class ExtractCluster(dspy.Signature):
-            """Find one cluster of related items from the list.
-            A cluster should contain items that are the same in meaning, with different tenses, plural forms, stem forms, or cases.
-            Return populated list only if you find items that clearly belong together, else return empty list."""
-
-            items: set[ItemsLiteral] = dspy.InputField()
-            context: str = dspy.InputField(
-                desc="The larger context in which the items appear"
-            )
-            cluster: list[ItemsLiteral] = dspy.OutputField()
-
+    while len(remaining_items) > 0 and no_progress_count < LOOP_N:
+        ExtractCluster, ItemsLiteral = get_extract_cluster_sig(items)
         extract = dspy.Predict(ExtractCluster)
 
         suggested_cluster: set[ItemsLiteral] = set(
             extract(items=remaining_items, context=context).cluster
         )
 
-        if len(suggested_cluster) > 0:
-            ClusterLiteral = Literal[tuple(suggested_cluster)]
+        if not suggested_cluster:
+            no_progress_count += 1
+            continue
 
-            class ValidateCluster(dspy.Signature):
-                """Validate if these items belong in the same cluster.
-                A cluster should contain items that are the same in meaning, with different tenses, plural forms, stem forms, or cases.
-                Return populated list only if you find items that clearly belong together, else return empty list."""
+        ValidateCluster, ClusterLiteral = get_validate_cluster_sig(suggested_cluster)
+        validate = dspy.Predict(ValidateCluster)
 
-                cluster: set[ClusterLiteral] = dspy.InputField()
-                context: str = dspy.InputField(
-                    desc="The larger context in which the items appear"
-                )
-                validated_items: list[ClusterLiteral] = dspy.OutputField(
-                    desc="All the items that belong together in the cluster"
-                )
+        validated_cluster = set(
+            validate(cluster=suggested_cluster, context=context).validated_items
+        )
+        if not validated_cluster:
+            no_progress_count += 1
+            continue
 
-            validate = dspy.Predict(ValidateCluster)
+        no_progress_count = 0
 
-            validated_cluster = set(
-                validate(cluster=suggested_cluster, context=context).validated_items
-            )
+        representative = choose_rep(
+            cluster=validated_cluster, context=context
+        ).representative
 
-            if len(validated_cluster) > 1:
-                no_progress_count = 0
-
-                representative = choose_rep(
-                    cluster=validated_cluster, context=context
-                ).representative
-
-                clusters.append(
-                    Cluster(representative=representative, members=validated_cluster)
-                )
-                remaining_items = {
-                    item for item in remaining_items if item not in validated_cluster
-                }
-                continue
-
-        no_progress_count += 1
-
-        if no_progress_count >= LOOP_N or len(remaining_items) == 0:
-            break
+        clusters.append(
+            Cluster(representative=representative, members=validated_cluster)
+        )
+        remaining_items = {
+            item for item in remaining_items if item not in validated_cluster
+        }
 
     if len(remaining_items) > 0:
         items_to_process = list(remaining_items)
 
         for i in range(0, len(items_to_process), BATCH_SIZE):
             batch = items_to_process[i : min(i + BATCH_SIZE, len(items_to_process))]
-            BatchLiteral = Literal[tuple(batch)]
-
-            if not clusters:
-                for item in batch:
-                    clusters.append(Cluster(representative=item, members={item}))
+            CheckExistingClusters = get_check_existing_clusters_sig(batch, clusters)
+            if not CheckExistingClusters:
                 continue
 
-            class CheckExistingClusters(dspy.Signature):
-                """Determine if the given items can be added to any of the existing clusters.
-                Return representative of matching cluster for each item, or None if there is no match."""
-
-                items: list[BatchLiteral] = dspy.InputField()
-                clusters: list[Cluster] = dspy.InputField(
-                    desc="Mapping of cluster representatives to their cluster members"
-                )
-                context: str = dspy.InputField(
-                    desc="The larger context in which the items appear"
-                )
-                cluster_reps_that_items_belong_to: list[Optional[str]] = (
-                    dspy.OutputField(
-                        desc="Ordered list of cluster representatives where each is the cluster where that item belongs to, or None if no match. THIS LIST LENGTH IS SAME AS ITEMS LIST LENGTH"
-                    )
-                )
-
             check_existing = dspy.ChainOfThought(CheckExistingClusters)
-
             c_result = check_existing(items=batch, clusters=clusters, context=context)
             cluster_reps = c_result.cluster_reps_that_items_belong_to
 
