@@ -3,11 +3,14 @@ import dspy
 from typing import Optional
 from pydantic import BaseModel
 from typing import Literal
+import logging
 
 LOOP_N = 8
 BATCH_SIZE = 10
 
 ItemType = Literal["entities", "edges"]
+
+logger = logging.getLogger(__name__)
 
 
 class ChooseRepresentative(dspy.Signature):
@@ -91,6 +94,89 @@ def get_check_existing_clusters_sig(
     return CheckExistingClusters
 
 
+def _map_batch_items(
+    batch: set[str],
+    cluster_reps: list[Optional[str]],
+    cluster_map: dict[str, Cluster],
+    item_assignments: dict[str, Optional[str]],
+    context: str,
+    validate: dspy.Signature,
+):
+    for i, item in enumerate(batch):
+        # Default: item might become its own cluster if no valid assignment found
+        item_assignments[item] = None
+
+        # Get the suggested representative from the LLM call
+        rep = cluster_reps[i] if i < len(cluster_reps) else None
+
+        target_cluster = None
+        # Check if the suggested representative corresponds to an existing cluster
+        if rep is not None and rep in cluster_map:
+            target_cluster = cluster_map[rep]
+
+        if target_cluster:
+            # If the item is already the representative or a member, assign it definitively
+            if item == target_cluster.representative or item in target_cluster.members:
+                item_assignments[item] = target_cluster.representative
+                continue  # Move to the next item
+
+            # Validate adding the item to the existing cluster's members
+            potential_new_members = target_cluster.members | {item}
+            try:
+                # Call the validation signature
+                v_result = validate(cluster=potential_new_members, context=context)
+                validated_items = set(
+                    v_result.validated_items
+                )  # Ensure result is a set
+
+                # Check if the item was validated as part of the cluster AND
+                # the size matches the expected size after adding.
+                # This assumes 'validate' confirms membership without removing others.
+                if item in validated_items and len(validated_items) == len(
+                    potential_new_members
+                ):
+                    # Validation successful, assign item to this cluster's representative
+                    item_assignments[item] = target_cluster.representative
+                # Else: Validation failed or item rejected, item_assignments[item] remains None
+
+            except Exception as e:
+                logger.error(
+                    f"Validation failed for item '{item}' potentially belonging to cluster '{target_cluster.representative}': {e}"
+                )
+                # Keep item_assignments[item] as None, indicating it needs a new cluster
+
+        # Else (no valid target_cluster found for the suggested 'rep'):
+        # item_assignments[item] remains None, will become a new cluster.
+
+    return item_assignments
+
+
+def _process_determined_assignments(
+    item_assignments: dict[str, Optional[str]],
+    cluster_map: dict[str, Cluster],
+) -> set[str]:
+    new_cluster_items: set[str] = set()
+    for item, assigned_rep in item_assignments.items():
+        if assigned_rep is not None:
+            # Item belongs to an existing cluster, add it to the members set
+            # Ensure the cluster exists in the map (should always be true here)
+            if assigned_rep in cluster_map:
+                cluster_map[assigned_rep].members.add(item)
+            else:
+                # This case should ideally not happen if logic is correct
+                logger.error(
+                    f"Error: Assigned representative '{assigned_rep}' not found in cluster_map for item '{item}'. Creating new cluster."
+                )
+                # Avoid creating if item itself is already a rep
+                if item not in cluster_map:
+                    new_cluster_items.add(item)
+        else:
+            # Item needs a new cluster, unless it's already a representative itself
+            if item not in cluster_map:
+                new_cluster_items.add(item)
+    return new_cluster_items
+
+
 def cluster_items(
     dspy: dspy, items: set[str], item_type: ItemType = "entities", context: str = ""
 ) -> tuple[set[str], dict[str, set[str]]]:
@@ -155,83 +241,14 @@ def cluster_items(
 
             # Determine assignments for batch items based on validation
             # Stores item -> assigned representative. If None, item needs a new cluster.
-            item_assignments: dict[str, Optional[str]] = {}
-
-            for i, item in enumerate(batch):
-                # Default: item might become its own cluster if no valid assignment found
-                item_assignments[item] = None
-
-                # Get the suggested representative from the LLM call
-                rep = cluster_reps[i] if i < len(cluster_reps) else None
-
-                target_cluster = None
-                # Check if the suggested representative corresponds to an existing cluster
-                if rep is not None and rep in cluster_map:
-                    target_cluster = cluster_map[rep]
-
-                if target_cluster:
-                    # If the item is already the representative or a member, assign it definitively
-                    if (
-                        item == target_cluster.representative
-                        or item in target_cluster.members
-                    ):
-                        item_assignments[item] = target_cluster.representative
-                        continue  # Move to the next item
-
-                    # Validate adding the item to the existing cluster's members
-                    potential_new_members = target_cluster.members | {item}
-                    try:
-                        # Call the validation signature
-                        v_result = validate(
-                            cluster=potential_new_members, context=context
-                        )
-                        validated_items = set(
-                            v_result.validated_items
-                        )  # Ensure result is a set
-
-                        # Check if the item was validated as part of the cluster AND
-                        # the size matches the expected size after adding.
-                        # This assumes 'validate' confirms membership without removing others.
-                        if item in validated_items and len(validated_items) == len(
-                            potential_new_members
-                        ):
-                            # Validation successful, assign item to this cluster's representative
-                            item_assignments[item] = target_cluster.representative
-                        # Else: Validation failed or item rejected, item_assignments[item] remains None
-
-                    except Exception as e:
-                        # Handle potential errors during the validation call
-                        # TODO: Add proper logging
-                        print(
-                            f"Validation failed for item '{item}' potentially belonging to cluster '{target_cluster.representative}': {e}"
-                        )
-                        # Keep item_assignments[item] as None, indicating it needs a new cluster
-
-                # Else (no valid target_cluster found for the suggested 'rep'):
-                # item_assignments[item] remains None, will become a new cluster.
+            item_assignments: dict[str, Optional[str]] = _map_batch_items(
+                batch, cluster_reps, cluster_map, {}, context, validate
+            )
 
             # Process the assignments determined above
-            new_cluster_items = set()  # Collect items needing a brand new cluster
-            for item, assigned_rep in item_assignments.items():
-                if assigned_rep is not None:
-                    # Item belongs to an existing cluster, add it to the members set
-                    # Ensure the cluster exists in the map (should always be true here)
-                    if assigned_rep in cluster_map:
-                        cluster_map[assigned_rep].members.add(item)
-                    else:
-                        # This case should ideally not happen if logic is correct
-                        # TODO: Add logging for this unexpected state
-                        print(
-                            f"Error: Assigned representative '{assigned_rep}' not found in cluster_map for item '{item}'. Creating new cluster."
-                        )
-                        if (
-                            item not in cluster_map
-                        ):  # Avoid creating if item itself is already a rep
-                            new_cluster_items.add(item)
-                else:
-                    # Item needs a new cluster, unless it's already a representative itself
-                    if item not in cluster_map:
-                        new_cluster_items.add(item)
+            new_cluster_items = _process_determined_assignments(
+                item_assignments, cluster_map
+            )
 
             # Create the new Cluster objects for items that couldn't be assigned
             for item in new_cluster_items:
@@ -239,9 +256,8 @@ def cluster_items(
                 if item not in cluster_map:
                     new_cluster = Cluster(representative=item, members={item})
                     clusters.append(new_cluster)
-                    cluster_map[item] = (
-                        new_cluster  # Update map for internal consistency
-                    )
+                    # Update map for internal consistency
+                    cluster_map[item] = new_cluster
 
     # Prepare the final output format expected by the calling function:
     # 1. A dictionary mapping representative -> set of members
