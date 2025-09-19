@@ -11,3 +11,5 @@
 **.egg-info
 tests/*.html
 data/
+.pytest_cache/
+.ruff_cache/
