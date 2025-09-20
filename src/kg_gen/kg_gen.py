@@ -15,8 +15,10 @@ class KGGen:
     def __init__(
         self,
         # TODO: update default model + reasoning.
-        model: str = "openai/gpt-4o",
-        temperature: float = 0.0,
+        model: str = "openai/gpt-5-nano-2025-08-07",
+        reasoning_effort: str = "medium",  # None if not reasoning model
+        max_tokens: int = 16000,  # minimum for gpt-5 family models
+        temperature: float = 1.0,
         api_key: str = None,
         api_base: str = None,
     ):
@@ -30,14 +32,34 @@ class KGGen:
         """
         self.dspy = dspy
         self.model = model
+        self.reasoning_effort = reasoning_effort
+        self.max_tokens = max_tokens
         self.temperature = temperature
         self.api_key = api_key
         self.api_base = api_base
-        self.init_model(model, temperature, api_key, api_base)
+        self.init_model(
+            model, reasoning_effort, max_tokens, temperature, api_key, api_base
+        )
+
+    def validate_reasoning_effort(self, reasoning_effort: str):
+        if "gpt-5" not in self.model and reasoning_effort is not None:
+            raise ValueError(
+                "Reasoning effort is only supported for gpt-5 family models"
+            )
+
+    def validate_temperature(self, temperature: float):
+        if "gpt-5" in self.model and temperature < 1.0:
+            raise ValueError("Temperature must be 1.0 for gpt-5 family models")
+
+    def validate_max_tokens(self, max_tokens: int):
+        if "gpt-5" in self.model and max_tokens < 16000:
+            raise ValueError("Max tokens must be 16000 for gpt-5 family models")
 
     def init_model(
         self,
         model: str = None,
+        reasoning_effort: str = None,
+        max_tokens: int = None,
         temperature: float = None,
         api_key: str = None,
         api_base: str = None,
@@ -50,27 +72,42 @@ class KGGen:
             api_key: API key for model access
             api_base: API base for model access
         """
+
         # Update instance variables if new values provided
         if model is not None:
             self.model = model
-        if temperature is not None:
-            self.temperature = temperature
+        if max_tokens is not None:
+            self.max_tokens = max_tokens
         if api_key is not None:
             self.api_key = api_key
         if api_base is not None:
             self.api_base = api_base
+        if temperature is not None:
+            self.temperature = temperature
+        if reasoning_effort is not None:
+            self.reasoning_effort = reasoning_effort
+
+        self.validate_temperature(self.temperature)
+        self.validate_reasoning_effort(self.reasoning_effort)
+        self.validate_max_tokens(self.max_tokens)
 
         # Initialize dspy LM with current settings
         if self.api_key:
             self.lm = dspy.LM(
                 model=self.model,
                 api_key=self.api_key,
+                reasoning_effort=self.reasoning_effort,
                 temperature=self.temperature,
+                max_tokens=self.max_tokens,
                 api_base=self.api_base,
             )
         else:
             self.lm = dspy.LM(
-                model=self.model, temperature=self.temperature, api_base=self.api_base
+                model=self.model,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                api_base=self.api_base,
+                reasoning_effort=self.reasoning_effort,
             )
 
         self.dspy.configure(lm=self.lm)
@@ -190,6 +227,8 @@ class KGGen:
                 "entities": list(entities),
                 "relations": list(relations),
                 "edges": list(graph.edges),
+                "entity_clusters": graph.entity_clusters,
+                "edge_clusters": graph.edge_clusters,
             }
 
             with open(output_path, "w") as f:
