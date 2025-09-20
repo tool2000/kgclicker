@@ -4,6 +4,7 @@ from .steps._1_get_entities import get_entities
 from .steps._2_get_relations import get_relations
 from .steps._3_cluster_graph import cluster_graph
 from .utils.chunk_text import chunk_text
+from .utils.visualize_kg import visualize as visualize_kg
 from .models import Graph
 import dspy
 import json
@@ -16,7 +17,7 @@ class KGGen:
         self,
         model: str = "openai/gpt-4o",
         max_tokens: int = 16000,  # minimum for gpt-5 family models
-        temperature: float = 1.0,
+        temperature: float = 0.0,
         reasoning_effort: str = None,
         api_key: str = None,
         api_base: str = None,
@@ -226,12 +227,18 @@ class KGGen:
                 "entities": list(entities),
                 "relations": list(relations),
                 "edges": list(graph.edges),
-                "entity_clusters": graph.entity_clusters,
-                "edge_clusters": graph.edge_clusters,
+                "entity_clusters": {
+                    k: list(v) for k, v in graph.entity_clusters.items()
+                },
+                "edge_clusters": {k: list(v) for k, v in graph.edge_clusters.items()},
             }
 
             with open(output_path, "w") as f:
-                json.dump(graph_dict, f, indent=2)
+                json.dump(
+                    graph_dict,
+                    f,
+                    indent=2,
+                )
 
         return graph
 
@@ -269,3 +276,7 @@ class KGGen:
 
         # Create and return aggregated graph
         return Graph(entities=all_entities, relations=all_relations, edges=all_edges)
+
+    @staticmethod
+    def visualize(graph: Graph, output_path: str, open_in_browser: bool = False):
+        visualize_kg(graph, output_path, open_in_browser=open_in_browser)
