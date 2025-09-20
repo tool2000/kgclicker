@@ -61,13 +61,13 @@ def test_clustered(kg: KGGen):
     # Generate individual graphs
     graph1 = kg.generate(
         input_data=text1,
-        model="openai/gpt-5-nano-2025-08-07",
+        model="openai/gpt-4o",
         context="Family relationships",
     )
 
     graph2 = kg.generate(
         input_data=text2,
-        model="openai/gpt-5-nano-2025-08-07",
+        model="openai/gpt-4o",
         context="Family relationships",
     )
 
@@ -78,7 +78,7 @@ def test_clustered(kg: KGGen):
     clustered_graph = kg.cluster(
         combined_graph,
         context="Family relationships",
-        model="openai/gpt-5-nano-2025-08-07",
+        model="openai/gpt-4o",
         api_key=os.getenv("OPENAI_API_KEY"),
     )
     expected_entities = {"Linda", "Joshua", "Josh", "Ben", "Andrew", "Judy"}
@@ -90,7 +90,10 @@ def test_clustered(kg: KGGen):
         "is nephew of",
         "is aunt of",
     }
-    print(clustered_graph)
+    # TODO: prompt outputting `{'sister_of', 'is mother of', 'aunt_of', 'alias_of', 'nephew_of', 'is brother of', 'is father of'}` wtf? gpt-5-nano?
+    # print(clustered_graph)
+    print("entities:", clustered_graph.entities)
+    print("edges:", clustered_graph.edges)
     assert match_subset(expected_entities, clustered_graph.entities)
     assert match_subset(expected_edges, clustered_graph.edges)
 

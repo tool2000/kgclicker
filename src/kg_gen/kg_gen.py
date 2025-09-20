@@ -14,11 +14,10 @@ from concurrent.futures import ThreadPoolExecutor
 class KGGen:
     def __init__(
         self,
-        # TODO: update default model + reasoning.
-        model: str = "openai/gpt-5-nano-2025-08-07",
-        reasoning_effort: str = "medium",  # None if not reasoning model
+        model: str = "openai/gpt-4o",
         max_tokens: int = 16000,  # minimum for gpt-5 family models
         temperature: float = 1.0,
+        reasoning_effort: str = None,
         api_key: str = None,
         api_base: str = None,
     ):

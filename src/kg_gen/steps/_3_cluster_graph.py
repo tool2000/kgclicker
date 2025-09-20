@@ -177,6 +177,43 @@ def _process_determined_assignments(
     return new_cluster_items
 
 
+def _process_batch(
+    batch: set[str],
+    clusters: list[Cluster],
+    context: str,
+    validate: dspy.Signature,
+):
+    CheckExistingClusters = get_check_existing_clusters_sig(batch, clusters)
+    if not CheckExistingClusters:
+        return
+
+    check_existing = dspy.ChainOfThought(CheckExistingClusters)
+    c_result = check_existing(items=batch, clusters=clusters, context=context)
+    cluster_reps = c_result.cluster_reps_that_items_belong_to
+
+    # Map representatives to their cluster objects for easier lookup
+    # Ensure cluster_map uses the most up-to-date list of clusters
+    cluster_map = {c.representative: c for c in clusters}
+
+    # Determine assignments for batch items based on validation
+    # Stores item -> assigned representative. If None, item needs a new cluster.
+    item_assignments: dict[str, Optional[str]] = _map_batch_items(
+        batch, cluster_reps, cluster_map, {}, context, validate
+    )
+
+    # Process the assignments determined above
+    new_cluster_items = _process_determined_assignments(item_assignments, cluster_map)
+
+    # Create the new Cluster objects for items that couldn't be assigned
+    for item in new_cluster_items:
+        # Final check: ensure a cluster with this item as rep doesn't exist
+        if item not in cluster_map:
+            new_cluster = Cluster(representative=item, members={item})
+            clusters.append(new_cluster)
+            # Update map for internal consistency
+            cluster_map[item] = new_cluster
+
+
 def cluster_items(
     dspy: dspy, items: set[str], item_type: ItemType = "entities", context: str = ""
 ) -> tuple[set[str], dict[str, set[str]]]:
@@ -186,6 +223,7 @@ def cluster_items(
     remaining_items = items.copy()
     clusters: list[Cluster] = []
     no_progress_count = 0
+    validate = None
 
     while len(remaining_items) > 0 and no_progress_count < LOOP_N:
         ExtractCluster, ItemsLiteral = get_extract_cluster_sig(items)
@@ -227,37 +265,7 @@ def cluster_items(
 
         for i in range(0, len(items_to_process), BATCH_SIZE):
             batch = items_to_process[i : min(i + BATCH_SIZE, len(items_to_process))]
-            CheckExistingClusters = get_check_existing_clusters_sig(batch, clusters)
-            if not CheckExistingClusters:
-                continue
-
-            check_existing = dspy.ChainOfThought(CheckExistingClusters)
-            c_result = check_existing(items=batch, clusters=clusters, context=context)
-            cluster_reps = c_result.cluster_reps_that_items_belong_to
-
-            # Map representatives to their cluster objects for easier lookup
-            # Ensure cluster_map uses the most up-to-date list of clusters
-            cluster_map = {c.representative: c for c in clusters}
-
-            # Determine assignments for batch items based on validation
-            # Stores item -> assigned representative. If None, item needs a new cluster.
-            item_assignments: dict[str, Optional[str]] = _map_batch_items(
-                batch, cluster_reps, cluster_map, {}, context, validate
-            )
-
-            # Process the assignments determined above
-            new_cluster_items = _process_determined_assignments(
-                item_assignments, cluster_map
-            )
-
-            # Create the new Cluster objects for items that couldn't be assigned
-            for item in new_cluster_items:
-                # Final check: ensure a cluster with this item as rep doesn't exist
-                if item not in cluster_map:
-                    new_cluster = Cluster(representative=item, members={item})
-                    clusters.append(new_cluster)
-                    # Update map for internal consistency
-                    cluster_map[item] = new_cluster
+            _process_batch(batch, clusters, context, validate)
 
     # Prepare the final output format expected by the calling function:
     # 1. A dictionary mapping representative -> set of members
