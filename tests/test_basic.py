@@ -38,7 +38,7 @@ def test_basic(kg: KGGen):
     # Generate a simple graph
     text = "Harry has two parents - his dad James Potter and his mom Lily Potter. Harry and his wife Ginny have three kids together: their oldest son James Sirius, their other son Albus, and their daughter Lily Luna."
 
-    graph = kg.generate(input_data=text, model="openai/gpt-5-nano-2025-08-07")
+    graph = kg.generate(input_data=text, model="openai/gpt-4o")
 
     expected_entities = {
         "Harry",
@@ -90,7 +90,7 @@ def test_clustered(kg: KGGen):
         "is nephew of",
         "is aunt of",
     }
-    # TODO: prompt outputting `{'sister_of', 'is mother of', 'aunt_of', 'alias_of', 'nephew_of', 'is brother of', 'is father of'}` wtf? gpt-5-nano?
+    # TODO: with gpt-5 temperature 1.0, it makes tests not deterministic, thus `is brother of` could be `is isbling of`.
     # print(clustered_graph)
     print("entities:", clustered_graph.entities)
     print("edges:", clustered_graph.edges)
@@ -128,7 +128,7 @@ def test_conversation(kg: KGGen):
 
     graph = kg.generate(
         input_data=messages,
-        model="openai/gpt-5-nano",
+        model="openai/gpt-4o",
         api_key=os.getenv("OPENAI_API_KEY"),
     )
     expected_entities = {"France", "Paris"}

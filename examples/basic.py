@@ -30,10 +30,6 @@ kg = KGGen()
 with open("tests/data/kingkiller_chapter_one.txt", "r", encoding="utf-8") as f:
     text = f.read()
 
-# TODO: include tqdm progress bar
-# graph.visualize() + improve viz
-# TODO: debug with timeit, what's taking the most time?
-
 graph = kg.generate(
     input_data=text,
     model="openai/gpt-4o",

@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List
 import dspy
 from pydantic import BaseModel
 
@@ -47,11 +47,12 @@ def fallback_extraction_sig(
     entities_str = "\n- ".join(entities)
 
     class Relation(BaseModel):
+        # TODO: should use literal's here instead.
         __doc__ = f"""Knowledge graph subject-predicate-object tuple. Subject and object entities must be one of: {entities_str}"""
 
-        subject: str
-        predicate: str
-        object: str
+        subject: str = dspy.InputField(desc="Subject entity", examples=["Kevin"])
+        predicate: str = dspy.InputField(desc="Predicate", examples=["is brother of"])
+        object: str = dspy.InputField(desc="Object entity", examples=["Vicky"])
 
     return Relation, extraction_sig(Relation, is_conversation, context)
 
@@ -66,9 +67,9 @@ def get_relations(
     class Relation(BaseModel):
         """Knowledge graph subject-predicate-object tuple."""
 
-        subject: Literal[tuple(entities)]
-        predicate: str
-        object: Literal[tuple(entities)]
+        subject: str = dspy.InputField(desc="Subject entity", examples=["Kevin"])
+        predicate: str = dspy.InputField(desc="Predicate", examples=["is brother of"])
+        object: str = dspy.InputField(desc="Object entity", examples=["Vicky"])
 
     ExtractRelations = extraction_sig(Relation, is_conversation, context)
 

@@ -11,6 +11,12 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 
+# Configure dspy logging to only show errors
+import logging
+
+dspy_logger = logging.getLogger("dspy")
+dspy_logger.setLevel(logging.CRITICAL)
+
 
 class KGGen:
     def __init__(
