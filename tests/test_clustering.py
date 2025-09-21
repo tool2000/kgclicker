@@ -5,7 +5,7 @@ import os
 
 # Test configurations
 TEST_MODEL = "openai/gpt-4o"
-TEST_TEMP = 0.2
+TEST_TEMP = 0.0
 TEST_API_KEY = os.getenv("OPENAI_API_KEY", "dummy-key")
 
 
@@ -33,6 +33,8 @@ def test_basic_clustering():
     assert len(clustered.entities) < len(graph.entities)
     assert "cat" in clustered.entities  # Representative form
     assert "dog" in clustered.entities  # Representative form
+
+    print(clustered)
 
     # Check that similar edges were clustered
     assert len(clustered.edges) < len(graph.edges)
@@ -95,6 +97,8 @@ def test_method_level_configuration():
     clustered = kg_gen.cluster(
         graph, model=TEST_MODEL, temperature=TEST_TEMP, api_key=TEST_API_KEY
     )
+
+    print(clustered)
 
     assert len(clustered.entities) < len(graph.entities)
     assert len(clustered.edges) < len(graph.edges)

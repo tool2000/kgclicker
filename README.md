@@ -61,6 +61,13 @@ graph_1 = kg.generate(
 #           ('Linda', 'is mother of', 'Josh')}
 ```
 
+### Visualizing KG's
+```python
+KGGen.visualize(graph, output_path, open_in_browser=True)
+```
+
+![viz-tool](images/viz-tool.png)
+
 ### More Examples - chunking, clustering, passing in a messages array 
 
 ```python

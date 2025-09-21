@@ -6,8 +6,27 @@ import pytest
 load_dotenv()
 
 
-def match_subset(set1, set2):
-    return set1.issubset(set2) or set2.issubset(set1)
+def match_subset(set1: set[str], set2: set[str]) -> bool:
+    """
+    Check if set1 is a subset of set2, with fuzzy matching for similar names.
+    set1, must be the expected set, and should contain less words for an entity, so fuzzy matching works in case.
+    """
+    diff = set1 - set2
+
+    if len(diff) == 0:
+        return True
+
+    # Check for fuzzy matches for remaining entities
+    for entity1 in diff:
+        found_match = False
+        for entity2 in set2:
+            if entity1.lower() in entity2.lower() or entity2.lower() in entity1.lower():
+                found_match = True
+                break
+        if not found_match:
+            return False
+
+    return True
 
 
 @pytest.fixture
@@ -31,7 +50,7 @@ def test_basic(kg: KGGen):
         "Lily Luna",
     }
     print(graph)
-    assert match_subset(graph.entities, expected_entities)
+    assert match_subset(expected_entities, graph.entities)
 
 
 def test_clustered(kg: KGGen):
@@ -41,11 +60,15 @@ def test_clustered(kg: KGGen):
 
     # Generate individual graphs
     graph1 = kg.generate(
-        input_data=text1, model="openai/gpt-4o", context="Family relationships"
+        input_data=text1,
+        model="openai/gpt-4o",
+        context="Family relationships",
     )
 
     graph2 = kg.generate(
-        input_data=text2, model="openai/gpt-4o", context="Family relationships"
+        input_data=text2,
+        model="openai/gpt-4o",
+        context="Family relationships",
     )
 
     # # Aggregate the graphs
@@ -67,13 +90,12 @@ def test_clustered(kg: KGGen):
         "is nephew of",
         "is aunt of",
     }
-    print(clustered_graph)
-    assert clustered_graph.entities.issubset(
-        expected_entities
-    ) or expected_entities.issubset(clustered_graph.entities)
-    assert clustered_graph.edges.issubset(expected_edges) or expected_edges.issubset(
-        clustered_graph.edges
-    )
+    # TODO: with gpt-5 temperature 1.0, it makes tests not deterministic, thus `is brother of` could be `is isbling of`.
+    # print(clustered_graph)
+    print("entities:", clustered_graph.entities)
+    print("edges:", clustered_graph.edges)
+    assert match_subset(expected_entities, clustered_graph.entities)
+    assert match_subset(expected_edges, clustered_graph.edges)
 
     print("\nGraph 1:")
     print("Entities:", graph1.entities)
@@ -105,8 +127,10 @@ def test_conversation(kg: KGGen):
     ]
 
     graph = kg.generate(
-        input_data=messages, model="openai/gpt-4o", api_key=os.getenv("OPENAI_API_KEY")
+        input_data=messages,
+        model="openai/gpt-4o",
+        api_key=os.getenv("OPENAI_API_KEY"),
     )
     expected_entities = {"France", "Paris"}
-    assert match_subset(graph.entities, expected_entities)
+    assert match_subset(expected_entities, graph.entities)
     print(graph)

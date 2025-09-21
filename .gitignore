@@ -13,3 +13,5 @@ tests/*.html
 data/
 .pytest_cache/
 .ruff_cache/
+examples/*.json
+examples/*.html
