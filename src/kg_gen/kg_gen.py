@@ -10,6 +10,10 @@ import dspy
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
+import networkx as nx
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 # Configure dspy logging to only show errors
 import logging
@@ -27,6 +31,7 @@ class KGGen:
         reasoning_effort: str = None,
         api_key: str = None,
         api_base: str = None,
+        retrieval_model: Optional[str] = None,
     ):
         """Initialize KGGen with optional model configuration
 
@@ -43,8 +48,16 @@ class KGGen:
         self.temperature = temperature
         self.api_key = api_key
         self.api_base = api_base
+        self.retrieval_model: Optional[SentenceTransformer] = None
+
         self.init_model(
-            model, reasoning_effort, max_tokens, temperature, api_key, api_base
+            model,
+            reasoning_effort,
+            max_tokens,
+            temperature,
+            api_key,
+            api_base,
+            retrieval_model,
         )
 
     def validate_reasoning_effort(self, reasoning_effort: str):
@@ -67,6 +80,7 @@ class KGGen:
         reasoning_effort: str = None,
         max_tokens: int = None,
         temperature: float = None,
+        retrieval_model: str = None,
         api_key: str = None,
         api_base: str = None,
     ):
@@ -77,6 +91,10 @@ class KGGen:
             temperature: Temperature for model sampling
             api_key: API key for model access
             api_base: API base for model access
+            retrieval_model: Name of retrieval model to use
+            reasoning_effort: Reasoning effort for model
+            max_tokens: Maximum tokens for model
+            temperature: Temperature for model sampling
         """
 
         # Update instance variables if new values provided
@@ -92,6 +110,8 @@ class KGGen:
             self.temperature = temperature
         if reasoning_effort is not None:
             self.reasoning_effort = reasoning_effort
+        if retrieval_model is not None:
+            self.retrieval_model = SentenceTransformer(retrieval_model)
 
         self.validate_temperature(self.temperature)
         self.validate_reasoning_effort(self.reasoning_effort)
@@ -118,6 +138,12 @@ class KGGen:
 
         self.dspy.configure(lm=self.lm)
 
+    @staticmethod
+    def from_file(file_path: str) -> Graph:
+        with open(file_path, "r") as f:
+            graph = Graph(**json.load(f))
+        return graph
+
     def generate(
         self,
         input_data: Union[str, List[Dict]],
@@ -125,16 +151,9 @@ class KGGen:
         api_key: str = None,
         api_base: str = None,
         context: str = "",
-        # example_relations: Optional[Union[
-        #   List[Tuple[str, str, str]],
-        #   List[Tuple[Tuple[str, str], str, Tuple[str, str]]]
-        # ]] = None,
         chunk_size: Optional[int] = None,
         cluster: bool = False,
         temperature: float = None,
-        # node_labels: Optional[List[str]] = None,
-        # edge_labels: Optional[List[str]] = None,
-        # ontology: Optional[List[Tuple[str, str, str]]] = None,
         output_folder: Optional[str] = None,
     ) -> Graph:
         """Generate a knowledge graph from input text or messages.
@@ -145,14 +164,10 @@ class KGGen:
             api_key (str): OpenAI API key for making model calls
             chunk_size: Max size of text chunks in characters to process
             context: Description of data context
-            example_relations: Example relationship tuples
-            node_labels: Valid node label strings
-            edge_labels: Valid edge label strings
-            ontology: Valid node-edge-node structure tuples
             output_folder: Path to save partial progress
 
         Returns:
-            Generated knowledge graph
+            Graph: Generated knowledge graph
         """
 
         # Process input data
@@ -286,3 +301,80 @@ class KGGen:
     @staticmethod
     def visualize(graph: Graph, output_path: str, open_in_browser: bool = False):
         visualize_kg(graph, output_path, open_in_browser=open_in_browser)
+
+    @staticmethod
+    def to_nx(graph: Graph) -> nx.DiGraph:
+        G = nx.DiGraph()
+        for entity in graph.entities:
+            G.add_node(entity)
+
+        for relation in graph.relations:
+            source, rel, target = relation
+            G.add_edge(source, target, relation=rel)
+        return G
+
+    def generate_embeddings(
+        self,
+        graph: Union[Graph, nx.DiGraph],
+        model: Optional[SentenceTransformer] = None,
+    ):
+        if model is None:
+            model = self.retrieval_model
+        if model is None:
+            raise ValueError("No retrieval model provided")
+
+        if isinstance(graph, Graph):
+            graph = self.to_nx(graph)
+
+        node_embeddings = {node: model.encode(node).tolist() for node in graph.nodes}
+        relation_embeddings = {
+            rel: model.encode(rel).tolist()
+            for rel in set(edge[2]["relation"] for edge in graph.edges(data=True))
+        }
+        return node_embeddings, relation_embeddings
+
+    def retrieve_relevant_nodes(
+        self,
+        query: str,
+        node_embeddings: dict[str, np.ndarray],
+        model: Optional[SentenceTransformer] = None,
+        k: int = 8,
+    ):
+        if model is None:
+            model = self.retrieval_model
+        if model is None:
+            raise ValueError("No retrieval model provided")
+
+        query_embedding = model.encode(query).reshape(1, -1)
+        similarities = []
+        for node, embed in node_embeddings.items():
+            target_embedding = np.array(embed).reshape(1, -1)
+            similarity = cosine_similarity(query_embedding, target_embedding)[0][0]
+            similarities.append((node, similarity))
+        similarities = sorted(similarities, key=lambda x: x[1], reverse=True)
+        return similarities[:k]
+
+    @staticmethod
+    def retrieve_context(
+        node: str,
+        graph: nx.DiGraph,
+        depth: int = 2,
+    ):
+        context = set()
+
+        def explore_neighbors(current_node, current_depth):
+            if current_depth > depth:
+                return
+            # Outgoing edges
+            for neighbor in graph.neighbors(current_node):
+                rel = graph[current_node][neighbor]["relation"]
+                context.add(f"{current_node} {rel} {neighbor}.")
+                explore_neighbors(neighbor, current_depth + 1)
+            # Incoming edges
+            for neighbor in graph.predecessors(current_node):
+                rel = graph[neighbor][current_node]["relation"]
+                context.add(f"{neighbor} {rel} {current_node}.")
+                explore_neighbors(neighbor, current_depth + 1)
+
+        explore_neighbors(node, 1)
+        return list(context)
