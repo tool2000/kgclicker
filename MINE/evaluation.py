@@ -7,12 +7,10 @@ from openai import OpenAI
 import os
 
 
-# Set OpenAI API key
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-# Use GPT to evaluate if the correct answer is in the context
-def gpt_evaluate_response(correct_answer, context):
+def gpt_evaluate_response(correct_answer: str, context: str) -> int:
     prompt = f"""
     Context:
     {context}
@@ -39,7 +37,6 @@ def gpt_evaluate_response(correct_answer, context):
     return int(response.choices[0].message.content.strip())
 
 
-# Evaluate accuracy
 def evaluate_accuracy(
     kggen: KGGen,
     questions_answers: list[dict],

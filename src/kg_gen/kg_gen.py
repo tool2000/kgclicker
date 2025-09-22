@@ -302,6 +302,17 @@ class KGGen:
     def visualize(graph: Graph, output_path: str, open_in_browser: bool = False):
         visualize_kg(graph, output_path, open_in_browser=open_in_browser)
 
+    # ====== Retrieval Methods ======
+
+    def parse_embedding_model(
+        self, model: Optional[SentenceTransformer] = None
+    ) -> Optional[SentenceTransformer]:
+        if model is None:
+            model = self.retrieval_model
+        if model is None:
+            raise ValueError("No retrieval model provided")
+        return model
+
     @staticmethod
     def to_nx(graph: Graph) -> nx.DiGraph:
         G = nx.DiGraph()
@@ -317,12 +328,8 @@ class KGGen:
         self,
         graph: Union[Graph, nx.DiGraph],
         model: Optional[SentenceTransformer] = None,
-    ):
-        if model is None:
-            model = self.retrieval_model
-        if model is None:
-            raise ValueError("No retrieval model provided")
-
+    ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+        model = self.parse_embedding_model(model)
         if isinstance(graph, Graph):
             graph = self.to_nx(graph)
 
@@ -339,12 +346,8 @@ class KGGen:
         node_embeddings: dict[str, np.ndarray],
         model: Optional[SentenceTransformer] = None,
         k: int = 8,
-    ):
-        if model is None:
-            model = self.retrieval_model
-        if model is None:
-            raise ValueError("No retrieval model provided")
-
+    ) -> list[tuple[str, float]]:
+        model = self.parse_embedding_model(model)
         query_embedding = model.encode(query).reshape(1, -1)
         similarities = []
         for node, embed in node_embeddings.items():
@@ -359,7 +362,7 @@ class KGGen:
         node: str,
         graph: nx.DiGraph,
         depth: int = 2,
-    ):
+    ) -> list[str]:
         context = set()
 
         def explore_neighbors(current_node, current_depth):

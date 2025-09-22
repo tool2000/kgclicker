@@ -958,11 +958,13 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyvis" },
     { name = "sentence-transformers" },
+    { name = "tqdm" },
     { name = "ty" },
 ]
 
 [package.dev-dependencies]
 dev = [
+    { name = "huggingface-hub" },
     { name = "pytest" },
     { name = "sentence-transformers" },
     { name = "typer" },
@@ -978,11 +980,13 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pyvis", specifier = ">=0.3.2" },
     { name = "sentence-transformers", specifier = ">=5.1.0" },
+    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "ty", specifier = ">=0.0.1a21" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "huggingface-hub", specifier = ">=0.35.0" },
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "sentence-transformers", specifier = ">=5.1.0" },
     { name = "typer", specifier = ">=0.17.4" },
