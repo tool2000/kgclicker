@@ -30,7 +30,7 @@ def upload_wikiqa_dataset(dry_run=False, skip_confirm=False, api_key=None):
         print("DRY RUN MODE - No actual upload will be performed")
 
     # Local data path
-    data_path = Path("tests/data/wiki_qa").resolve()
+    data_path = Path("data/wiki_qa").resolve()
     if not data_path.exists():
         print(f"Error: Data path {data_path} does not exist")
         sys.exit(1)
