@@ -1,16 +1,3 @@
-#!/usr/bin/env python3
-"""
-Script to upload WikiQA dataset to HuggingFace Hub.
-
-This script uploads the entire tests/data/wiki_qa directory to a HuggingFace dataset repository.
-
-Requirements:
-- pip install huggingface_hub tqdm
-
-Usage:
-    python _3_upload_hf.py
-"""
-
 import os
 import sys
 from pathlib import Path
@@ -51,8 +38,6 @@ def upload_wikiqa_dataset(dry_run=False, skip_confirm=False, api_key=None):
     print(f"Uploading data from: {data_path}")
     print(f"Repository: {REPO_NAME}")
     print(f"Repository type: {REPO_TYPE}")
-
-    # Initialize HuggingFace API
     api = HfApi(token=HF_TOKEN)
 
     # Create repository if it doesn't exist
@@ -60,14 +45,12 @@ def upload_wikiqa_dataset(dry_run=False, skip_confirm=False, api_key=None):
         if ORGANIZATION:
             repo_id = f"{ORGANIZATION}/{REPO_NAME}"
         else:
-            # Get username from token
             user_info = api.whoami()
             username = user_info["name"]
             repo_id = f"{username}/{REPO_NAME}"
 
         print(f"Creating/checking repository: {repo_id}")
 
-        # Check if repo exists
         try:
             api.repo_info(repo_id, repo_type=REPO_TYPE)
             print(f"Repository {repo_id} already exists")
@@ -77,7 +60,7 @@ def upload_wikiqa_dataset(dry_run=False, skip_confirm=False, api_key=None):
                 repo_id=repo_id,
                 repo_type=REPO_TYPE,
                 token=HF_TOKEN,
-                private=False,  # Set to True if you want private repo
+                private=False,
                 exist_ok=True,
             )
             print(f"Created repository: {repo_id}")
