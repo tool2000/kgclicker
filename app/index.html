@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Knowledge Graph Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            color-scheme: light;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f172a;
+            color: #0f172a;
+            min-height: 100vh;
+            display: flex;
+            align-items: stretch;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 420px minmax(0, 1fr);
+            width: 100%;
+        }
+
+        main {
+            max-width: 420px;
+            width: 100%;
+            background: #ffffff;
+            padding: 32px 28px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        p.description {
+            margin: 0;
+            color: #475569;
+            line-height: 1.5;
+        }
+
+        .card {
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 20px 18px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: #f8fafc;
+        }
+
+        .card h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .card p {
+            margin: 0;
+            color: #475569;
+            font-size: 0.95rem;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            border: 1px solid #cbd5f5;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            color: #0f172a;
+            background: #ffffff;
+        }
+
+        textarea {
+            min-height: 140px;
+            resize: vertical;
+        }
+
+        .field-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .drop-zone {
+            border: 2px dashed #94a3b8;
+            border-radius: 16px;
+            padding: 24px 18px;
+            text-align: center;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: border-color 0.2s ease, background 0.2s ease;
+            cursor: pointer;
+        }
+
+        .drop-zone.dragover {
+            border-color: #2563eb;
+            background: #e0f2fe;
+        }
+
+        .drop-zone strong {
+            font-size: 1rem;
+            color: #1e293b;
+        }
+
+        .hint {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: none;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            padding: 12px 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .primary {
+            background: #2563eb;
+            color: #ffffff;
+        }
+
+        .primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .secondary {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+
+        .secondary:hover {
+            background: #cbd5f5;
+            transform: translateY(-1px);
+        }
+
+        .status {
+            font-size: 0.9rem;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #f1f5f9;
+            color: #1e293b;
+            min-height: 48px;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .viewer-wrapper {
+            flex: 1;
+            width: 100%;
+            background: #0f172a;
+            display: flex;
+            align-items: stretch;
+            justify-content: flex-start;
+            padding: 24px;
+            position: relative;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 18px;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+            background: #ffffff;
+            flex: 1 1 auto;
+        }
+
+        .placeholder {
+            position: absolute;
+            inset: 24px;
+            border: 2px dashed rgba(255, 255, 255, 0.25);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 1rem;
+            text-align: center;
+            padding: 40px;
+            pointer-events: none;
+        }
+
+        .floating-actions {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .floating-actions button {
+            padding: 10px 14px;
+        }
+
+        input[type="file"] {
+            font-size: 0.9rem;
+        }
+
+        .file-note {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        @media (max-width: 1100px) {
+            body {
+                flex-direction: column;
+                background: #ffffff;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            main {
+                max-width: none;
+                border-bottom: 1px solid #e2e8f0;
+                box-shadow: none;
+            }
+
+            .viewer-wrapper {
+                padding: 16px;
+                min-height: 60vh;
+            }
+
+            .placeholder {
+                inset: 16px;
+            }
+
+            .floating-actions {
+                position: static;
+                justify-content: flex-end;
+                margin-top: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <main>
+            <header>
+                <h1>Knowledge Graph Explorer</h1>
+                <p class="description">Load an existing <code>graph.json</code> or generate one from text using <code>kg-gen</code>. Rendering stays in your browser.</p>
+            </header>
+
+            <section class="card" id="existingGraphCard">
+                <h2>Open existing graph</h2>
+                <p>Upload a saved visualization JSON or raw <code>graph.json</code> to render it instantly.</p>
+                <div
+                    class="drop-zone"
+                    id="graphDropZone"
+                    role="button"
+                    tabindex="0"
+                    aria-controls="graphFile"
+                    aria-label="Upload graph JSON"
+                >
+                    <strong>Drop file here or click to choose</strong>
+                    <span class="hint">Accepts <code>.json</code> exports from kg-gen</span>
+                </div>
+                <input type="file" id="graphFile" accept="application/json,.json" hidden />
+            </section>
+
+            <section class="card" id="generateCard">
+                <h2>Generate from text</h2>
+                <p>Provide your OpenAI API key and either paste text or upload a <code>.txt</code> document. The request runs through <code>KGGen</code> on this server.</p>
+
+                <div class="field-group">
+                    <div>
+                        <label for="apiKey">OpenAI API key</label>
+                        <input type="password" id="apiKey" autocomplete="off" placeholder="sk-..." />
+                    </div>
+                    <div class="field-row">
+                        <div>
+                            <label for="model">Model</label>
+                            <select id="model">
+                                <option value="openai/gpt-4o">openai/gpt-4o</option>
+                                <option value="openai/gpt-4o-mini">openai/gpt-4o-mini</option>
+                                <option value="openai/gpt-4.1-mini">openai/gpt-4.1-mini</option>
+                                <option value="openai/gpt-4.1">openai/gpt-4.1</option>
+                                <option value="openai/gpt-4.1-nano">openai/gpt-4.1-nano</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="chunkSize">Chunk size (chars)</label>
+                            <input type="number" id="chunkSize" min="0" placeholder="e.g. 1500" />
+                        </div>
+                    </div>
+                    <div class="field-row">
+                        <label class="checkbox">
+                            <input type="checkbox" id="clusterToggle" />
+                            <span>Enable clustering</span>
+                        </label>
+                        <div class="field">
+                            <label for="temperature">Temperature</label>
+                            <input type="number" id="temperature" step="0.1" min="0" max="2" placeholder="Default" />
+                        </div>
+                    </div>
+                    <div>
+                        <label for="context">Context (optional)</label>
+                        <input type="text" id="context" placeholder="Short description of the corpus" />
+                    </div>
+                    <div>
+                        <label for="sourceText">Paste text</label>
+                        <textarea id="sourceText" placeholder="Add any text you would like to convert into a knowledge graph..."></textarea>
+                    </div>
+                    <div>
+                        <label for="textFile">Or upload a .txt file</label>
+                        <input type="file" id="textFile" accept="text/plain" />
+                        <div class="file-note">Files are processed on this machine and never leave your environment.</div>
+                    </div>
+                </div>
+
+                <div class="button-row">
+                    <button class="primary" id="generateButton">Generate graph</button>
+                    <button class="secondary" id="clearTextButton" type="button">Clear inputs</button>
+                </div>
+            </section>
+
+            <div class="status" id="status">Awaiting action.</div>
+        </main>
+
+        <section class="viewer-wrapper">
+            <div class="placeholder" id="placeholder">Load or generate a graph to inspect it here.</div>
+            <iframe id="viewer" title="Knowledge Graph Explorer" hidden></iframe>
+            <div class="floating-actions" id="floatingActions" hidden>
+                <button class="secondary" id="downloadGraph" type="button">Download graph.json</button>
+                <button class="secondary" id="refreshView" type="button">Reload view</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        (function () {
+            const statusBox = document.getElementById('status');
+            const viewer = document.getElementById('viewer');
+            const placeholder = document.getElementById('placeholder');
+            const floatingActions = document.getElementById('floatingActions');
+            const downloadButton = document.getElementById('downloadGraph');
+            const refreshButton = document.getElementById('refreshView');
+
+            const graphFileInput = document.getElementById('graphFile');
+            const graphDropZone = document.getElementById('graphDropZone');
+
+            const apiKeyInput = document.getElementById('apiKey');
+            const modelSelect = document.getElementById('model');
+            const chunkSizeInput = document.getElementById('chunkSize');
+            const temperatureInput = document.getElementById('temperature');
+            const clusterToggle = document.getElementById('clusterToggle');
+            const contextInput = document.getElementById('context');
+            const sourceText = document.getElementById('sourceText');
+            const textFileInput = document.getElementById('textFile');
+
+            const generateButton = document.getElementById('generateButton');
+            const clearTextButton = document.getElementById('clearTextButton');
+
+            const refreshCallbacks = [];
+
+            let templateHtml = null;
+            let activeUrl = null;
+            let lastGraphPayload = null;
+            let lastViewModel = null;
+
+            function setStatus(message, variant) {
+                statusBox.textContent = message;
+                statusBox.classList.toggle('error', variant === 'error');
+                statusBox.classList.toggle('success', variant === 'success');
+                console[variant === 'error' ? 'error' : variant === 'success' ? 'info' : 'log']('[kg-gen]', message);
+            }
+
+            function resetViewer() {
+                if (activeUrl) {
+                    URL.revokeObjectURL(activeUrl);
+                    activeUrl = null;
+                }
+                viewer.setAttribute('hidden', 'hidden');
+                viewer.removeAttribute('src');
+                placeholder.removeAttribute('hidden');
+                placeholder.style.display = 'flex';
+                floatingActions.setAttribute('hidden', 'hidden');
+                refreshCallbacks.length = 0;
+            }
+
+            function prepareDownload(graphJson) {
+                if (!graphJson) {
+                    downloadButton.setAttribute('hidden', 'hidden');
+                    refreshButton.setAttribute('hidden', 'hidden');
+                    floatingActions.setAttribute('hidden', 'hidden');
+                    return;
+                }
+                lastGraphPayload = graphJson;
+                downloadButton.removeAttribute('hidden');
+                refreshButton.removeAttribute('hidden');
+                floatingActions.removeAttribute('hidden');
+            }
+
+            function extractSummary(viewModel) {
+                if (!viewModel || !viewModel.stats) {
+                    return 'Graph rendered.';
+                }
+                const stats = viewModel.stats;
+                const summary = [];
+                if (typeof stats.entities === 'number') summary.push(`${stats.entities} entities`);
+                if (typeof stats.relations === 'number') summary.push(`${stats.relations} relations`);
+                if (typeof stats.relationTypes === 'number') summary.push(`${stats.relationTypes} relation types`);
+                return `Graph ready: ${summary.join(', ')}.`;
+            }
+
+            function sanitizeJson(jsonValue) {
+                return JSON.stringify(jsonValue, null, 2).replace(/<\/script>/gi, '<\\/script>');
+            }
+
+            async function loadTemplate() {
+                if (templateHtml) {
+                    return templateHtml;
+                }
+                setStatus('Loading visualization template...');
+                try {
+                    const response = await fetch('/template');
+                    if (!response.ok) {
+                        throw new Error('Template fetch failed');
+                    }
+                    templateHtml = await response.text();
+                    setStatus('Template ready. Drop or generate a graph.');
+                } catch (error) {
+                    setStatus(`Failed to load template: ${error.message}`, 'error');
+                    throw error;
+                }
+                return templateHtml;
+            }
+
+            async function renderView(viewModel, graphForDownload) {
+                console.info('[kg-gen] Rendering view model');
+                await loadTemplate();
+                const html = templateHtml.replace('<!--DATA-->', `\n${sanitizeJson(viewModel)}\n`);
+                if (activeUrl) {
+                    URL.revokeObjectURL(activeUrl);
+                }
+                activeUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+                viewer.src = activeUrl;
+                viewer.removeAttribute('hidden');
+                placeholder.setAttribute('hidden', 'hidden');
+                placeholder.style.display = 'none';
+                prepareDownload(graphForDownload || viewModel);
+                lastViewModel = viewModel;
+                setStatus(extractSummary(viewModel), 'success');
+                refreshCallbacks.length = 0;
+                refreshCallbacks.push(() => renderView(lastViewModel, lastGraphPayload));
+            }
+
+            function readFile(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = event => resolve(event.target?.result ?? '');
+                    reader.onerror = () => reject(new Error('File read failed'));
+                    reader.readAsText(file);
+                });
+            }
+
+            async function handleGraphData(rawJson) {
+                if (!rawJson) {
+                    throw new Error('Empty JSON payload');
+                }
+                const isViewModel = rawJson.nodes && rawJson.edges && rawJson.stats;
+                if (isViewModel) {
+                    console.info('[kg-gen] Detected precomputed view model');
+                    setStatus('Rendering supplied visualization...');
+                    await renderView(rawJson, rawJson);
+                    return;
+                }
+                setStatus('Preparing graph data...');
+                console.info('[kg-gen] Sending graph data to /api/graph/view');
+                let response;
+                try {
+                    response = await fetch('/api/graph/view', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(rawJson)
+                    });
+                } catch (error) {
+                    console.error('[kg-gen] Network error while preparing graph', error);
+                    setStatus(`Could not contact graph preparation endpoint: ${error.message}`, 'error');
+                    throw error;
+                }
+                const payload = await response.json();
+                if (!response.ok) {
+                    console.warn('[kg-gen] Graph preparation failed', payload);
+                    throw new Error(payload.detail || payload.error || 'Failed to prepare graph');
+                }
+                console.info('[kg-gen] Graph preparation succeeded');
+                await renderView(payload.view, payload.graph);
+            }
+
+            async function handleGraphFile(file) {
+                if (!file) {
+                    return;
+                }
+                setStatus(`Reading ${file.name}...`);
+                console.info('[kg-gen] Reading uploaded graph file', file.name);
+                try {
+                    const contents = await readFile(file);
+                    const json = JSON.parse(contents);
+                    await handleGraphData(json);
+                } catch (error) {
+                    console.error(error);
+                    setStatus(`Could not load graph: ${error.message}`, 'error');
+                    resetViewer();
+                }
+            }
+
+            async function generateGraph() {
+                const apiKey = apiKeyInput.value.trim();
+                const pastedText = sourceText.value.trim();
+                const textFile = textFileInput.files?.[0];
+                const chunkSizeValue = chunkSizeInput.value.trim();
+                const temperatureValue = temperatureInput.value.trim();
+
+                if (!apiKey) {
+                    setStatus('Enter your OpenAI API key to generate a graph.', 'error');
+                    return;
+                }
+
+                if (!pastedText && !textFile) {
+                    setStatus('Provide some text or upload a .txt file.', 'error');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('api_key', apiKey);
+                formData.append('model', modelSelect.value);
+                formData.append('cluster', clusterToggle.checked ? 'true' : 'false');
+                if (pastedText) {
+                    formData.append('source_text', pastedText);
+                }
+                if (textFile) {
+                    formData.append('text_file', textFile);
+                }
+                if (contextInput.value.trim()) {
+                    formData.append('context', contextInput.value.trim());
+                }
+                if (chunkSizeValue) {
+                    formData.append('chunk_size', chunkSizeValue);
+                }
+                if (temperatureValue) {
+                    formData.append('temperature', temperatureValue);
+                }
+
+                setStatus('Generating graph with KGGen...');
+                console.info('[kg-gen] Submitting generate request', {
+                    model: modelSelect.value,
+                    cluster: clusterToggle.checked,
+                    hasText: Boolean(pastedText),
+                    hasFile: Boolean(textFile)
+                });
+                resetViewer();
+
+                try {
+                    const response = await fetch('/api/generate', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        console.warn('[kg-gen] Generation endpoint returned error', payload);
+                        throw new Error(payload.detail || payload.error || 'Generation failed');
+                    }
+                    console.info('[kg-gen] Generation succeeded');
+                    await renderView(payload.view, payload.graph);
+                } catch (error) {
+                    console.error(error);
+                    setStatus(`Generation failed: ${error.message}`, 'error');
+                }
+            }
+
+            graphDropZone.addEventListener('click', event => {
+                event.preventDefault();
+                graphFileInput.click();
+            });
+
+            graphDropZone.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    graphFileInput.click();
+                }
+            });
+
+            graphFileInput.addEventListener('change', event => {
+                const [file] = event.target.files;
+                handleGraphFile(file);
+                graphFileInput.value = '';
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                graphDropZone.addEventListener(eventName, event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    graphDropZone.classList.add('dragover');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                graphDropZone.addEventListener(eventName, event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    graphDropZone.classList.remove('dragover');
+                });
+            });
+
+            graphDropZone.addEventListener('drop', event => {
+                const files = event.dataTransfer?.files;
+                if (files && files.length) {
+                    console.info('[kg-gen] File dropped', files[0].name);
+                    handleGraphFile(files[0]);
+                }
+            });
+
+            generateButton.addEventListener('click', event => {
+                event.preventDefault();
+                generateGraph();
+            });
+
+            clearTextButton.addEventListener('click', event => {
+                event.preventDefault();
+                sourceText.value = '';
+                textFileInput.value = '';
+                contextInput.value = '';
+                chunkSizeInput.value = '';
+                temperatureInput.value = '';
+                clusterToggle.checked = false;
+                setStatus('Inputs cleared. Ready for new text.');
+            });
+
+            downloadButton.addEventListener('click', () => {
+                if (!lastGraphPayload) {
+                    return;
+                }
+                const blob = new Blob([JSON.stringify(lastGraphPayload, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'graph.json';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            });
+
+            refreshButton.addEventListener('click', () => {
+                if (!refreshCallbacks.length) {
+                    return;
+                }
+                const latest = refreshCallbacks[refreshCallbacks.length - 1];
+                latest?.();
+            });
+
+            loadTemplate().catch(() => {
+                /* Status already updated in loadTemplate */
+            });
+        })();
+    </script>
+</body>
+</html>
