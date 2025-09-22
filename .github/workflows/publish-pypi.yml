@@ -1,0 +1,66 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (must match pyproject.toml)'
+        required: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      EXPECTED_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate version alignment
+        run: |
+          version=$(python - <<'PY'
+import tomllib
+with open('pyproject.toml', 'rb') as fh:
+    data = tomllib.load(fh)
+print(data['project']['version'])
+PY
+          )
+          expected="${EXPECTED_VERSION#v}"
+          if [ -z "$expected" ]; then
+            echo '::error::Expected version is empty. Provide a version or release tag.'
+            exit 1
+          fi
+          if [ "$version" != "$expected" ]; then
+            echo "::error::pyproject.toml version ($version) does not match expected ($expected)."
+            exit 1
+          fi
+        shell: bash
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+        shell: bash
+
+      - name: Build distribution
+        run: |
+          rm -rf dist
+          python -m build
+          twine check dist/*
+        shell: bash
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
