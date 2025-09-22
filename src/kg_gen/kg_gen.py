@@ -304,7 +304,7 @@ class KGGen:
 
     # ====== Retrieval Methods ======
 
-    def parse_embedding_model(
+    def _parse_embedding_model(
         self, model: Optional[SentenceTransformer] = None
     ) -> Optional[SentenceTransformer]:
         if model is None:
@@ -329,7 +329,7 @@ class KGGen:
         graph: Union[Graph, nx.DiGraph],
         model: Optional[SentenceTransformer] = None,
     ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
-        model = self.parse_embedding_model(model)
+        model = self._parse_embedding_model(model)
         if isinstance(graph, Graph):
             graph = self.to_nx(graph)
 
@@ -340,14 +340,35 @@ class KGGen:
         }
         return node_embeddings, relation_embeddings
 
-    def retrieve_relevant_nodes(
+    def retrieve(
         self,
         query: str,
         node_embeddings: dict[str, np.ndarray],
+        graph: nx.DiGraph,
         model: Optional[SentenceTransformer] = None,
         k: int = 8,
+        verbose: bool = False,
+    ) -> tuple[list[tuple[str, float]], set[str], str]:
+        model = self._parse_embedding_model(model)
+        top_nodes = self.retrieve_relevant_nodes(query, node_embeddings, model, k)
+        context = set()
+        for node, _ in top_nodes:
+            node_context = self.retrieve_context(node, graph)
+            if verbose:
+                print(f"Context for node {node}: {node_context}")
+            context.update(node_context)
+        context_text = " ".join(context)
+        if verbose:
+            print(f"Combined context: '{context_text}'\n---")
+        return top_nodes, context, context_text
+
+    @staticmethod
+    def retrieve_relevant_nodes(
+        query: str,
+        node_embeddings: dict[str, np.ndarray],
+        model: SentenceTransformer,
+        k: int = 8,
     ) -> list[tuple[str, float]]:
-        model = self.parse_embedding_model(model)
         query_embedding = model.encode(query).reshape(1, -1)
         similarities = []
         for node, embed in node_embeddings.items():
@@ -358,11 +379,7 @@ class KGGen:
         return similarities[:k]
 
     @staticmethod
-    def retrieve_context(
-        node: str,
-        graph: nx.DiGraph,
-        depth: int = 2,
-    ) -> list[str]:
+    def retrieve_context(node: str, graph: nx.DiGraph, depth: int = 2) -> list[str]:
         context = set()
 
         def explore_neighbors(current_node, current_depth):
