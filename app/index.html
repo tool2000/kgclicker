@@ -405,6 +405,502 @@
 
     <script>
         (function () {
+            const locale = navigator.language || 'en-US';
+
+            function compareIgnoreCase(a, b) {
+                const valueA = (a ?? '').toString();
+                const valueB = (b ?? '').toString();
+                const lowerA = valueA.toLocaleLowerCase(locale);
+                const lowerB = valueB.toLocaleLowerCase(locale);
+                if (lowerA < lowerB) {
+                    return -1;
+                }
+                if (lowerA > lowerB) {
+                    return 1;
+                }
+                if (valueA < valueB) {
+                    return -1;
+                }
+                if (valueA > valueB) {
+                    return 1;
+                }
+                return 0;
+            }
+
+            function sortedIgnoreCase(values) {
+                if (!values) {
+                    return [];
+                }
+                if (values instanceof Set) {
+                    return Array.from(values).map(value => (value ?? '').toString()).sort(compareIgnoreCase);
+                }
+                return Array.from(values).map(value => (value ?? '').toString()).sort(compareIgnoreCase);
+            }
+
+            function ensureArray(value) {
+                if (!value) {
+                    return [];
+                }
+                if (Array.isArray(value)) {
+                    return value;
+                }
+                if (value instanceof Set) {
+                    return Array.from(value);
+                }
+                if (typeof value === 'object') {
+                    return Object.values(value);
+                }
+                return [value];
+            }
+
+            function normalizeRelations(rawRelations) {
+                return ensureArray(rawRelations)
+                    .map(entry => {
+                        if (!entry) {
+                            return null;
+                        }
+                        if (Array.isArray(entry)) {
+                            const [subject, predicate, object] = entry;
+                            if (
+                                subject === undefined ||
+                                predicate === undefined ||
+                                object === undefined
+                            ) {
+                                return null;
+                            }
+                            return [subject.toString(), predicate.toString(), object.toString()];
+                        }
+                        if (typeof entry === 'object') {
+                            const subject = entry.subject ?? entry.source;
+                            const predicate = entry.predicate ?? entry.relation ?? entry.label;
+                            const object = entry.object ?? entry.target;
+                            if (
+                                subject === undefined ||
+                                predicate === undefined ||
+                                object === undefined
+                            ) {
+                                return null;
+                            }
+                            return [subject.toString(), predicate.toString(), object.toString()];
+                        }
+                        return null;
+                    })
+                    .filter(Boolean);
+            }
+
+            function normalizeClusterMap(rawClusters) {
+                const map = new Map();
+                if (!rawClusters) {
+                    return map;
+                }
+                if (rawClusters instanceof Map) {
+                    rawClusters.forEach((members, key) => {
+                        map.set(key.toString(), ensureArray(members).map(member => member.toString()));
+                    });
+                    return map;
+                }
+                const entries = Array.isArray(rawClusters)
+                    ? rawClusters
+                    : Object.entries(rawClusters);
+
+                entries.forEach(entry => {
+                    if (!entry) {
+                        return;
+                    }
+                    if (Array.isArray(entry)) {
+                        const [key, members] = entry;
+                        if (key === undefined) {
+                            return;
+                        }
+                        map.set(key.toString(), ensureArray(members).map(member => member.toString()));
+                    } else if (typeof entry === 'object' && entry.id !== undefined) {
+                        map.set(entry.id.toString(), ensureArray(entry.members).map(member => member.toString()));
+                    }
+                });
+
+                return map;
+            }
+
+            function normalizeGraphPayload(raw) {
+                if (!raw || typeof raw !== 'object') {
+                    throw new Error('Graph JSON must be an object.');
+                }
+                if (raw.graph && typeof raw.graph === 'object') {
+                    return normalizeGraphPayload(raw.graph);
+                }
+                if (Array.isArray(raw.nodes) && Array.isArray(raw.edges) && raw.stats) {
+                    return raw;
+                }
+
+                const entities = ensureArray(raw.entities ?? raw.Nodes ?? raw.nodes ?? [])
+                    .map(entity => entity?.toString?.() ?? '')
+                    .filter(Boolean);
+
+                const relationSource =
+                    raw.relations ??
+                    raw.Relations ??
+                    raw.relationships ??
+                    raw.triples ??
+                    raw.Triples ??
+                    raw.edges ??
+                    [];
+
+                let relations = normalizeRelations(relationSource);
+                if (
+                    !relations.length &&
+                    raw.relations &&
+                    typeof raw.relations === 'object' &&
+                    'data' in raw.relations
+                ) {
+                    relations = normalizeRelations(raw.relations.data);
+                }
+
+                const entityClusters = normalizeClusterMap(
+                    raw.entity_clusters ?? raw.entityClusters ?? raw.entityclusters
+                );
+
+                const edgeClusters = normalizeClusterMap(
+                    raw.edge_clusters ?? raw.edgeClusters ?? raw.edgeclusters
+                );
+
+                return {
+                    entities,
+                    relations,
+                    entityClusters,
+                    edgeClusters,
+                };
+            }
+
+            function hslToHex(h, s, l) {
+                const hue = (h % 1 + 1) % 1;
+                const saturation = Math.max(0, Math.min(1, s));
+                const lightness = Math.max(0, Math.min(1, l));
+
+                const a = saturation * Math.min(lightness, 1 - lightness);
+                const f = n => {
+                    const k = (n + hue * 12) % 12;
+                    const color = lightness - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                    return Math.round(255 * color)
+                        .toString(16)
+                        .padStart(2, '0');
+                };
+
+                return `#${f(0)}${f(8)}${f(4)}`;
+            }
+
+            function stringToColor(label) {
+                const text = (label ?? '').toString();
+                let hash = 0;
+                for (let index = 0; index < text.length; index += 1) {
+                    hash = Math.imul(31, hash) + text.charCodeAt(index);
+                    hash >>>= 0; // ensure unsigned 32-bit
+                }
+                const byte1 = hash & 0xff;
+                const byte2 = (hash >>> 8) & 0xff;
+                const byte3 = (hash >>> 16) & 0xff;
+                const hue = byte1 / 255;
+                const saturation = 0.55 + (byte2 / 255) * 0.3;
+                const lightness = 0.45 + (byte3 / 255) * 0.25;
+                return hslToHex(hue, saturation, lightness);
+            }
+
+            function buildViewModelLocally(rawGraph) {
+                const graph = normalizeGraphPayload(rawGraph);
+                if (Array.isArray(graph.nodes) && Array.isArray(graph.edges) && graph.stats) {
+                    return graph;
+                }
+
+                const allEntities = new Set(graph.entities);
+                graph.relations.forEach(([subject, , object]) => {
+                    if (subject) {
+                        allEntities.add(subject);
+                    }
+                    if (object) {
+                        allEntities.add(object);
+                    }
+                });
+
+                const entities = sortedIgnoreCase(allEntities);
+
+                const clusterView = [];
+                const entityMemberToCluster = new Map();
+                const nodeColorLookup = new Map();
+
+                graph.entityClusters.forEach((members, representative) => {
+                    const memberSet = new Set(ensureArray(members));
+                    memberSet.add(representative);
+                    const orderedMembers = sortedIgnoreCase(memberSet);
+                    const color = stringToColor(`entity::${representative}`);
+                    clusterView.push({
+                        id: representative,
+                        label: representative,
+                        members: orderedMembers,
+                        size: orderedMembers.length,
+                        color,
+                    });
+                    orderedMembers.forEach(member => {
+                        entityMemberToCluster.set(member, representative);
+                        nodeColorLookup.set(member, color);
+                    });
+                });
+
+                if (!clusterView.length) {
+                    entities.forEach(entity => {
+                        nodeColorLookup.set(entity, stringToColor(`entity::${entity}`));
+                    });
+                } else {
+                    entities.forEach(entity => {
+                        if (!nodeColorLookup.has(entity)) {
+                            nodeColorLookup.set(entity, stringToColor(`entity::${entity}`));
+                        }
+                    });
+                }
+
+                const edgeClusterView = [];
+                const edgeMemberToCluster = new Map();
+                const edgeColorLookup = new Map();
+
+                graph.edgeClusters.forEach((members, representative) => {
+                    const memberSet = new Set(ensureArray(members));
+                    memberSet.add(representative);
+                    const orderedMembers = sortedIgnoreCase(memberSet);
+                    const color = stringToColor(`edge::${representative}`);
+                    edgeClusterView.push({
+                        id: representative,
+                        label: representative,
+                        members: orderedMembers,
+                        size: orderedMembers.length,
+                        color,
+                    });
+                    orderedMembers.forEach(member => {
+                        edgeMemberToCluster.set(member, representative);
+                        edgeColorLookup.set(member, color);
+                    });
+                });
+
+                const degree = new Map();
+                const indegree = new Map();
+                const outdegree = new Map();
+                const predicateCounts = new Map();
+                const adjacency = new Map();
+                const nodeNeighbors = new Map();
+                const nodeEdges = new Map();
+
+                const ensureNodeRecord = node => {
+                    if (!degree.has(node)) {
+                        degree.set(node, 0);
+                    }
+                    if (!indegree.has(node)) {
+                        indegree.set(node, 0);
+                    }
+                    if (!outdegree.has(node)) {
+                        outdegree.set(node, 0);
+                    }
+                    if (!adjacency.has(node)) {
+                        adjacency.set(node, new Set());
+                    }
+                    if (!nodeNeighbors.has(node)) {
+                        nodeNeighbors.set(node, new Set());
+                    }
+                    if (!nodeEdges.has(node)) {
+                        nodeEdges.set(node, { incoming: [], outgoing: [] });
+                    }
+                };
+
+                entities.forEach(entity => {
+                    ensureNodeRecord(entity);
+                });
+
+                const edgesView = [];
+                graph.relations.forEach(([subject, predicate, object], index) => {
+                    const source = subject ?? '';
+                    const target = object ?? '';
+                    const edgePredicate = predicate ?? '';
+
+                    ensureNodeRecord(source);
+                    ensureNodeRecord(target);
+
+                    predicateCounts.set(
+                        edgePredicate,
+                        (predicateCounts.get(edgePredicate) || 0) + 1
+                    );
+
+                    degree.set(source, (degree.get(source) || 0) + 1);
+                    degree.set(target, (degree.get(target) || 0) + 1);
+                    outdegree.set(source, (outdegree.get(source) || 0) + 1);
+                    indegree.set(target, (indegree.get(target) || 0) + 1);
+
+                    adjacency.get(source).add(target);
+                    adjacency.get(target).add(source);
+                    nodeNeighbors.get(source).add(target);
+                    nodeNeighbors.get(target).add(source);
+
+                    const edgeId = `e${index}`;
+                    const cluster = edgeMemberToCluster.get(edgePredicate) || null;
+                    const color =
+                        edgeColorLookup.get(edgePredicate) ||
+                        stringToColor(`predicate::${edgePredicate}`);
+                    if (!edgeColorLookup.has(edgePredicate)) {
+                        edgeColorLookup.set(edgePredicate, color);
+                    }
+
+                    edgesView.push({
+                        id: edgeId,
+                        source,
+                        target,
+                        predicate: edgePredicate,
+                        cluster,
+                        color,
+                        tooltip: `${source} \u2014${edgePredicate}\u2192 ${target}`,
+                    });
+
+                    nodeEdges.get(source).outgoing.push(edgeId);
+                    nodeEdges.get(target).incoming.push(edgeId);
+                });
+
+                const isolatedEntities = entities.filter(
+                    entity => (degree.get(entity) || 0) === 0
+                );
+
+                const components = (() => {
+                    const visited = new Set();
+                    const result = [];
+                    entities.forEach(entity => {
+                        if (visited.has(entity)) {
+                            return;
+                        }
+                        const queue = [entity];
+                        visited.add(entity);
+                        const members = [];
+                        while (queue.length) {
+                            const current = queue.shift();
+                            members.push(current);
+                            (adjacency.get(current) || new Set()).forEach(neighbor => {
+                                if (!visited.has(neighbor)) {
+                                    visited.add(neighbor);
+                                    queue.push(neighbor);
+                                }
+                            });
+                        }
+                        result.push({
+                            size: members.length,
+                            members: sortedIgnoreCase(members),
+                        });
+                    });
+                    result.sort((a, b) => {
+                        if (b.size !== a.size) {
+                            return b.size - a.size;
+                        }
+                        const firstA = a.members[0] ?? '';
+                        const firstB = b.members[0] ?? '';
+                        return compareIgnoreCase(firstA, firstB);
+                    });
+                    return result;
+                })();
+
+                const nodesView = entities.map(entity => {
+                    const cluster = entityMemberToCluster.get(entity) || null;
+                    const nodeDegree = degree.get(entity) || 0;
+                    return {
+                        id: entity,
+                        label: entity,
+                        cluster,
+                        color: nodeColorLookup.get(entity) || '#64748b',
+                        degree: nodeDegree,
+                        indegree: indegree.get(entity) || 0,
+                        outdegree: outdegree.get(entity) || 0,
+                        isRepresentative: cluster ? cluster === entity : false,
+                        radius: 18 + Math.min(nodeDegree, 8) * 2,
+                        neighbors: sortedIgnoreCase(nodeNeighbors.get(entity) || []),
+                        edgeIds: nodeEdges.get(entity) || { incoming: [], outgoing: [] },
+                    };
+                });
+
+                const topEntities = nodesView
+                    .map(node => ({
+                        label: node.label,
+                        degree: node.degree,
+                        indegree: node.indegree,
+                        outdegree: node.outdegree,
+                        cluster: node.cluster,
+                    }))
+                    .sort((a, b) => {
+                        if (b.degree !== a.degree) {
+                            return b.degree - a.degree;
+                        }
+                        return compareIgnoreCase(a.label, b.label);
+                    })
+                    .slice(0, 10);
+
+                const topRelations = Array.from(predicateCounts.entries())
+                    .map(([predicate, count]) => ({
+                        predicate,
+                        count,
+                        cluster: edgeMemberToCluster.get(predicate) || null,
+                        color:
+                            edgeColorLookup.get(predicate) ||
+                            stringToColor(`predicate::${predicate}`),
+                    }))
+                    .sort((a, b) => {
+                        if (b.count !== a.count) {
+                            return b.count - a.count;
+                        }
+                        return compareIgnoreCase(a.predicate, b.predicate);
+                    })
+                    .slice(0, 10);
+
+                const totalDegree = entities.reduce(
+                    (sum, entity) => sum + (degree.get(entity) || 0),
+                    0
+                );
+
+                const stats = {
+                    entities: entities.length,
+                    relations: edgesView.length,
+                    relationTypes: predicateCounts.size,
+                    entityClusters: clusterView.length,
+                    edgeClusters: edgeClusterView.length,
+                    isolatedEntities: isolatedEntities.length,
+                    components: components.length,
+                    averageDegree: entities.length
+                        ? Math.round((totalDegree / entities.length) * 100) / 100
+                        : 0,
+                    density:
+                        entities.length > 1
+                            ? Math.round(
+                                  (edgesView.length /
+                                      (entities.length * (entities.length - 1)) +
+                                      Number.EPSILON) *
+                                      1000
+                              ) / 1000
+                            : 0,
+                };
+
+                const relationRecords = edgesView.map((edge, index) => {
+                    const relation = graph.relations[index] || [];
+                    return {
+                        source: relation[0] ?? edge.source,
+                        predicate: relation[1] ?? edge.predicate,
+                        target: relation[2] ?? edge.target,
+                        edgeId: edge.id,
+                        color: edge.color,
+                    };
+                });
+
+                return {
+                    nodes: nodesView,
+                    edges: edgesView,
+                    clusters: clusterView,
+                    edgeClusters: edgeClusterView,
+                    topEntities,
+                    topRelations,
+                    stats,
+                    isolatedEntities,
+                    components,
+                    relations: relationRecords,
+                };
+            }
+
             const statusBox = document.getElementById('status');
             const viewer = document.getElementById('viewer');
             const placeholder = document.getElementById('placeholder');
@@ -534,6 +1030,7 @@
                 if (!rawJson) {
                     throw new Error('Empty JSON payload');
                 }
+
                 const isViewModel = rawJson.nodes && rawJson.edges && rawJson.stats;
                 if (isViewModel) {
                     console.info('[kg-gen] Detected precomputed view model');
@@ -541,29 +1038,63 @@
                     await renderView(rawJson, rawJson);
                     return;
                 }
+
                 setStatus('Preparing graph data...');
                 console.info('[kg-gen] Sending graph data to /api/graph/view');
-                let response;
+
+                let remoteError = null;
                 try {
-                    response = await fetch('/api/graph/view', {
+                    const response = await fetch('/api/graph/view', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify(rawJson)
                     });
+
+                    let payload;
+                    try {
+                        payload = await response.json();
+                    } catch (parseError) {
+                        if (!response.ok) {
+                            throw new Error(`Backend responded with ${response.status}`);
+                        }
+                        throw parseError;
+                    }
+
+                    if (!response.ok) {
+                        console.warn('[kg-gen] Graph preparation failed', payload);
+                        let message = payload && typeof payload === 'object'
+                            ? payload.detail || payload.error || payload.message
+                            : null;
+                        if (Array.isArray(payload?.detail)) {
+                            message = payload.detail
+                                .map(item => item.msg || item.message || JSON.stringify(item))
+                                .join('; ');
+                        }
+                        throw new Error(message || 'Failed to prepare graph');
+                    }
+
+                    console.info('[kg-gen] Graph preparation succeeded');
+                    await renderView(payload.view, payload.graph);
+                    return;
                 } catch (error) {
-                    console.error('[kg-gen] Network error while preparing graph', error);
-                    setStatus(`Could not contact graph preparation endpoint: ${error.message}`, 'error');
-                    throw error;
+                    remoteError = error;
+                    console.warn('[kg-gen] Falling back to local rendering', error);
                 }
-                const payload = await response.json();
-                if (!response.ok) {
-                    console.warn('[kg-gen] Graph preparation failed', payload);
-                    throw new Error(payload.detail || payload.error || 'Failed to prepare graph');
+
+                try {
+                    const viewModel = buildViewModelLocally(rawJson);
+                    console.info('[kg-gen] Graph rendered locally');
+                    await renderView(viewModel, rawJson);
+                    setStatus(`${extractSummary(viewModel)} (rendered locally)`, 'success');
+                } catch (fallbackError) {
+                    console.error('[kg-gen] Local conversion failed', fallbackError);
+                    const combinedMessage = fallbackError?.message || remoteError?.message || 'Unknown error';
+                    setStatus(`Could not load graph: ${combinedMessage}`, 'error');
+                    resetViewer();
+                    throw fallbackError;
                 }
-                console.info('[kg-gen] Graph preparation succeeded');
-                await renderView(payload.view, payload.graph);
             }
 
             async function handleGraphFile(file) {
