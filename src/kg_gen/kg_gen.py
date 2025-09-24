@@ -51,13 +51,13 @@ class KGGen:
         self.retrieval_model: Optional[SentenceTransformer] = None
 
         self.init_model(
-            model,
-            reasoning_effort,
-            max_tokens,
-            temperature,
-            api_key,
-            api_base,
-            retrieval_model,
+            model=model,
+            reasoning_effort=reasoning_effort,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            api_key=api_key,
+            api_base=api_base,
+            retrieval_model=retrieval_model,
         )
 
     def validate_reasoning_effort(self, reasoning_effort: str):

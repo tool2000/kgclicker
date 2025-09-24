@@ -1,22 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Helper script to build, push, and deploy the kg-gen app to Cloud Run.
-# Required environment variables:
-#   GCP_PROJECT_ID              - Google Cloud project id
-#   CLOUD_RUN_SERVICE           - Cloud Run service name
-#   CLOUD_RUN_REGION            - Cloud Run region (e.g. us-central1)
-#   ARTIFACT_REGISTRY_REPO      - Artifact Registry repository name
-# Optional environment variables:
-#   ARTIFACT_REGISTRY_LOCATION  - Artifact Registry location (defaults to CLOUD_RUN_REGION)
-#   IMAGE_NAME                   - Image name (defaults to cloud-run-app)
-#   IMAGE_TAG                    - Image tag (defaults to current git commit or timestamp)
-#   CLOUD_RUN_SERVICE_ACCOUNT    - Service account email to run the service as
-#   CLOUD_RUN_MAX_INSTANCES      - Maximum number of instances
-#   CLOUD_RUN_MIN_INSTANCES      - Minimum number of instances
-#   CLOUD_RUN_CPU                - Cloud Run CPU allocation (e.g. 1, 2)
-#   CLOUD_RUN_MEMORY             - Cloud Run memory allocation (e.g. 512Mi, 1Gi)
-#   CLOUD_RUN_CONCURRENCY        - Max concurrent requests per instance
+GCP_PROJECT_ID=kggen-ai
+CLOUD_RUN_SERVICE=app
+CLOUD_RUN_REGION=us-central1
+ARTIFACT_REGISTRY_REPO=app
 
 for var in GCP_PROJECT_ID CLOUD_RUN_SERVICE CLOUD_RUN_REGION ARTIFACT_REGISTRY_REPO; do
   if [[ -z "${!var:-}" ]]; then
@@ -32,7 +20,7 @@ IMAGE_URI="${ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTI
 
 printf "[deploy] Building and pushing image %s\n" "$IMAGE_URI"
 
-gcloud builds submit --tag "$IMAGE_URI" --project "$GCP_PROJECT_ID"
+gcloud builds submit --tag "$IMAGE_URI" --project "$GCP_PROJECT_ID" .
 
 deploy_args=(
   --image "$IMAGE_URI"
