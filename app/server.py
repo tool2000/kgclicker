@@ -221,15 +221,27 @@ async def generate_graph(
                 status_code=400, detail=f"temperature must be numeric: {exc}"
             )
 
-    kg = KGGen(model=model, api_key=api_key)
+    # Validate temperature for gpt-5 family models
+    if "gpt-5" in model:
+        if numeric_temperature is not None and numeric_temperature < 1.0:
+            raise HTTPException(
+                status_code=400,
+                detail="Temperature must be 1.0 or higher for gpt-5 family models",
+            )
+        # Set default temperature to 1.0 for gpt-5 models if not specified
+        if numeric_temperature is None:
+            numeric_temperature = 1.0
+
+    kg = KGGen(model=model, api_key=api_key, temperature=numeric_temperature)
 
     logger.info(
-        "Generating graph via KGGen: model=%s cluster=%s chunk_size=%s context_len=%s text_len=%s",
+        "Generating graph via KGGen: model=%s cluster=%s chunk_size=%s context_len=%s text_len=%s temperature=%s",
         model,
         _parse_bool(cluster),
         numeric_chunk,
         len((_clean_str(context) or "")),
         len(request_text),
+        numeric_temperature,
     )
     try:
         graph = kg.generate(
@@ -259,9 +271,4 @@ async def generate_graph(
         len(graph.entities),
         len(graph.relations),
     )
-    return JSONResponse(
-        {
-            "view": view,
-            "graph": graph.model_dump(mode="json"),
-        }
-    )
+    return JSONResponse({"view": view, "graph": graph.model_dump(mode="json")})

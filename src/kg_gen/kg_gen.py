@@ -255,11 +255,7 @@ class KGGen:
             }
 
             with open(output_path, "w") as f:
-                json.dump(
-                    graph_dict,
-                    f,
-                    indent=2,
-                )
+                json.dump(graph_dict, f, indent=2)
 
         return graph
 

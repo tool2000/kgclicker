@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -322,25 +323,22 @@
         }
     </style>
 </head>
+
 <body>
     <div class="layout">
         <main>
             <header>
                 <h1>Knowledge Graph Explorer</h1>
-                <p class="description">Load an existing <code>graph.json</code> or generate one from text using <code>kg-gen</code>. Rendering stays in your browser.</p>
+                <p class="description">Load an existing <code>graph.json</code> or generate one from text using
+                    <code>kg-gen</code>. Rendering stays in your browser.
+                </p>
             </header>
 
             <section class="card" id="existingGraphCard">
                 <h2>Open existing graph</h2>
                 <p>Upload a saved visualization JSON or raw <code>graph.json</code> to render it instantly.</p>
-                <div
-                    class="drop-zone"
-                    id="graphDropZone"
-                    role="button"
-                    tabindex="0"
-                    aria-controls="graphFile"
-                    aria-label="Upload graph JSON"
-                >
+                <div class="drop-zone" id="graphDropZone" role="button" tabindex="0" aria-controls="graphFile"
+                    aria-label="Upload graph JSON">
                     <strong>Drop file here or click to choose</strong>
                     <span class="hint">Accepts <code>.json</code> exports from kg-gen</span>
                 </div>
@@ -352,21 +350,16 @@
                             <option value="">Loading samples...</option>
                         </select>
                         <div class="hint" id="exampleStatus">Select an example to load it instantly.</div>
-                        <a
-                            id="exampleLink"
-                            class="hint-link"
-                            href="#"
-                            target="_blank"
-                            rel="noopener"
-                            hidden
-                        >View on Wikipedia</a>
+                        <a id="exampleLink" class="hint-link" href="#" target="_blank" rel="noopener" hidden>View on
+                            Wikipedia</a>
                     </div>
                 </div>
             </section>
 
             <section class="card" id="generateCard">
                 <h2>Generate from text</h2>
-                <p>Provide your OpenAI API key and either paste text or upload a <code>.txt</code> document. The request runs through <code>KGGen</code> on this server.</p>
+                <p>Provide your OpenAI API key and either paste text or upload a <code>.txt</code> document. The request
+                    runs through <code>KGGen</code> on this server.</p>
 
                 <div class="field-group">
                     <div>
@@ -378,10 +371,8 @@
                             <label for="model">Model</label>
                             <select id="model">
                                 <option value="openai/gpt-4o">openai/gpt-4o</option>
-                                <option value="openai/gpt-4o-mini">openai/gpt-4o-mini</option>
-                                <option value="openai/gpt-4.1-mini">openai/gpt-4.1-mini</option>
-                                <option value="openai/gpt-4.1">openai/gpt-4.1</option>
-                                <option value="openai/gpt-4.1-nano">openai/gpt-4.1-nano</option>
+                                <option value="openai/gpt-5-nano">openai/gpt-5-nano</option>
+                                <option value="openai/gpt-5">openai/gpt-5</option>
                             </select>
                         </div>
                         <div>
@@ -405,12 +396,14 @@
                     </div>
                     <div>
                         <label for="sourceText">Paste text</label>
-                        <textarea id="sourceText" placeholder="Add any text you would like to convert into a knowledge graph..."></textarea>
+                        <textarea id="sourceText"
+                            placeholder="Add any text you would like to convert into a knowledge graph..."></textarea>
                     </div>
                     <div>
                         <label for="textFile">Or upload a .txt file</label>
                         <input type="file" id="textFile" accept="text/plain" />
-                        <div class="file-note">Files are processed on this machine and never leave your environment.</div>
+                        <div class="file-note">Files are processed on this machine and never leave your environment.
+                        </div>
                     </div>
                 </div>
 
@@ -551,6 +544,92 @@
                 return map;
             }
 
+            function normalizeClusterObject(rawClusters) {
+                if (!rawClusters) {
+                    return {};
+                }
+
+                if (rawClusters instanceof Map) {
+                    const result = {};
+                    rawClusters.forEach((members, key) => {
+                        if (key === undefined || key === null) {
+                            return;
+                        }
+                        result[key.toString()] = ensureArray(members).map(member => member.toString());
+                    });
+                    return result;
+                }
+
+                const entries = Array.isArray(rawClusters)
+                    ? rawClusters
+                    : Object.entries(rawClusters);
+
+                const result = {};
+                entries.forEach(entry => {
+                    if (!entry) {
+                        return;
+                    }
+                    if (Array.isArray(entry)) {
+                        const [key, members] = entry;
+                        if (key === undefined || key === null) {
+                            return;
+                        }
+                        result[key.toString()] = ensureArray(members).map(member => member.toString());
+                    } else if (typeof entry === 'object' && entry.id !== undefined && entry.id !== null) {
+                        result[entry.id.toString()] = ensureArray(entry.members).map(member => member.toString());
+                    } else if (typeof entry === 'object') {
+                        Object.entries(entry).forEach(([key, members]) => {
+                            if (key === undefined || key === null) {
+                                return;
+                            }
+                            result[key.toString()] = ensureArray(members).map(member => member.toString());
+                        });
+                    }
+                });
+
+                return result;
+            }
+
+            function sanitizeGraphForBackend(rawGraph) {
+                if (!rawGraph || typeof rawGraph !== 'object') {
+                    return rawGraph;
+                }
+
+                if (rawGraph.graph && typeof rawGraph.graph === 'object') {
+                    return {
+                        ...rawGraph,
+                        graph: sanitizeGraphForBackend(rawGraph.graph),
+                    };
+                }
+
+                const entityClustersSource = rawGraph.entity_clusters ?? rawGraph.entityClusters ?? rawGraph.entityclusters ?? {};
+                const edgeClustersSource = rawGraph.edge_clusters ?? rawGraph.edgeClusters ?? rawGraph.edgeclusters ?? {};
+
+                const normalizedEntityClusters = normalizeClusterObject(entityClustersSource);
+                const normalizedEdgeClusters = normalizeClusterObject(edgeClustersSource);
+
+                const payload = {
+                    ...rawGraph,
+                    entity_clusters: normalizedEntityClusters,
+                    edge_clusters: normalizedEdgeClusters,
+                };
+
+                if ('entityClusters' in payload) {
+                    payload.entityClusters = normalizedEntityClusters;
+                }
+                if ('entityclusters' in payload) {
+                    payload.entityclusters = normalizedEntityClusters;
+                }
+                if ('edgeClusters' in payload) {
+                    payload.edgeClusters = normalizedEdgeClusters;
+                }
+                if ('edgeclusters' in payload) {
+                    payload.edgeclusters = normalizedEdgeClusters;
+                }
+
+                return payload;
+            }
+
             function normalizeGraphPayload(raw) {
                 if (!raw || typeof raw !== 'object') {
                     throw new Error('Graph JSON must be an object.');
@@ -586,11 +665,11 @@
                 }
 
                 const entityClusters = normalizeClusterMap(
-                    raw.entity_clusters ?? raw.entityClusters ?? raw.entityclusters
+                    raw.entity_clusters ?? raw.entityClusters ?? raw.entityclusters ?? []
                 );
 
                 const edgeClusters = normalizeClusterMap(
-                    raw.edge_clusters ?? raw.edgeClusters ?? raw.edgeclusters
+                    raw.edge_clusters ?? raw.edgeClusters ?? raw.edgeclusters ?? []
                 );
 
                 return {
@@ -635,13 +714,26 @@
             }
 
             function buildViewModelLocally(rawGraph) {
-                const graph = normalizeGraphPayload(rawGraph);
+                const graph = normalizeGraphPayload(rawGraph) ?? {};
                 if (Array.isArray(graph.nodes) && Array.isArray(graph.edges) && graph.stats) {
                     return graph;
                 }
 
-                const allEntities = new Set(graph.entities);
-                graph.relations.forEach(([subject, , object]) => {
+                const entitiesInput = ensureArray(graph.entities);
+                const relationsInput = Array.isArray(graph.relations)
+                    ? graph.relations
+                    : ensureArray(graph.relations);
+
+                const entityClustersMap = graph.entityClusters instanceof Map
+                    ? graph.entityClusters
+                    : normalizeClusterMap(graph.entityClusters);
+
+                const edgeClustersMap = graph.edgeClusters instanceof Map
+                    ? graph.edgeClusters
+                    : normalizeClusterMap(graph.edgeClusters);
+
+                const allEntities = new Set(entitiesInput);
+                relationsInput.forEach(([subject, , object]) => {
                     if (subject) {
                         allEntities.add(subject);
                     }
@@ -656,7 +748,7 @@
                 const entityMemberToCluster = new Map();
                 const nodeColorLookup = new Map();
 
-                graph.entityClusters.forEach((members, representative) => {
+                entityClustersMap.forEach((members, representative) => {
                     const memberSet = new Set(ensureArray(members));
                     memberSet.add(representative);
                     const orderedMembers = sortedIgnoreCase(memberSet);
@@ -690,7 +782,7 @@
                 const edgeMemberToCluster = new Map();
                 const edgeColorLookup = new Map();
 
-                graph.edgeClusters.forEach((members, representative) => {
+                edgeClustersMap.forEach((members, representative) => {
                     const memberSet = new Set(ensureArray(members));
                     memberSet.add(representative);
                     const orderedMembers = sortedIgnoreCase(memberSet);
@@ -742,7 +834,7 @@
                 });
 
                 const edgesView = [];
-                graph.relations.forEach(([subject, predicate, object], index) => {
+                relationsInput.forEach(([subject, predicate, object], index) => {
                     const source = subject ?? '';
                     const target = object ?? '';
                     const edgePredicate = predicate ?? '';
@@ -898,16 +990,16 @@
                     density:
                         entities.length > 1
                             ? Math.round(
-                                  (edgesView.length /
-                                      (entities.length * (entities.length - 1)) +
-                                      Number.EPSILON) *
-                                      1000
-                              ) / 1000
+                                (edgesView.length /
+                                    (entities.length * (entities.length - 1)) +
+                                    Number.EPSILON) *
+                                1000
+                            ) / 1000
                             : 0,
                 };
 
                 const relationRecords = edgesView.map((edge, index) => {
-                    const relation = graph.relations[index] || [];
+                    const relation = relationsInput[index] || [];
                     return {
                         source: relation[0] ?? edge.source,
                         predicate: relation[1] ?? edge.predicate,
@@ -958,6 +1050,44 @@
 
             const refreshCallbacks = [];
             const exampleMetadata = new Map();
+
+            const modelDefaultTemperature = new Map([
+                ['openai/gpt-5', 1.0],
+                ['openai/gpt-5-nano', 1.0],
+                ['openai/gpt-5-mini', 1.0],
+                ['openai/gpt-5-large', 1.0],
+                ['openai/gpt-4.1', 0.0],
+                ['openai/gpt-4.1-mini', 0.0],
+                ['openai/gpt-4.1-nano', 0.0],
+                ['openai/gpt-4o', 0.0],
+                ['openai/gpt-4o-mini', 0.0],
+                ['openai/gpt-4o-mini-omni-math', 0.0],
+            ]);
+
+            function inferDefaultTemperature(modelId) {
+                if (!modelId) {
+                    return 0;
+                }
+                if (modelDefaultTemperature.has(modelId)) {
+                    return modelDefaultTemperature.get(modelId);
+                }
+                if (modelId.includes('gpt-5')) {
+                    return 1.0;
+                }
+                return 0.0;
+            }
+
+            function applyDefaultTemperature(modelId, userTriggered = false) {
+                if (!temperatureInput) {
+                    return;
+                }
+                const currentValue = temperatureInput.value.trim();
+                if (!userTriggered && currentValue) {
+                    return;
+                }
+                const temperature = inferDefaultTemperature(modelId);
+                temperatureInput.value = temperature.toString();
+            }
 
             let templateHtml = null;
             let activeUrl = null;
@@ -1162,13 +1292,14 @@
                 console.info('[kg-gen] Sending graph data to /api/graph/view');
 
                 let remoteError = null;
+                const backendPayload = sanitizeGraphForBackend(rawJson);
                 try {
                     const response = await fetch('/api/graph/view', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify(rawJson)
+                        body: JSON.stringify(backendPayload)
                     });
 
                     let payload;
@@ -1284,11 +1415,30 @@
                         method: 'POST',
                         body: formData
                     });
-                    const payload = await response.json();
-                    if (!response.ok) {
-                        console.warn('[kg-gen] Generation endpoint returned error', payload);
-                        throw new Error(payload.detail || payload.error || 'Generation failed');
+
+                    const rawBody = await response.text();
+                    let payload = null;
+                    if (rawBody) {
+                        try {
+                            payload = JSON.parse(rawBody);
+                        } catch (parseError) {
+                            console.warn('[kg-gen] Response was not valid JSON', parseError);
+                        }
                     }
+
+                    if (!response.ok) {
+                        console.warn('[kg-gen] Generation endpoint returned error', payload || rawBody);
+                        const message =
+                            (payload && (payload.detail || payload.error || payload.message)) ||
+                            rawBody?.trim() ||
+                            `Generation failed (${response.status})`;
+                        throw new Error(message);
+                    }
+
+                    if (!payload || typeof payload !== 'object') {
+                        throw new Error('Generation succeeded but returned invalid response.');
+                    }
+
                     console.info('[kg-gen] Generation succeeded');
                     await renderView(payload.view, payload.graph);
                 } catch (error) {
@@ -1360,6 +1510,13 @@
                     } finally {
                         exampleSelect.disabled = exampleMetadata.size === 0;
                     }
+                });
+            }
+
+            if (modelSelect) {
+                applyDefaultTemperature(modelSelect.value, false);
+                modelSelect.addEventListener('change', event => {
+                    applyDefaultTemperature(event.target.value, true);
                 });
             }
 
@@ -1435,4 +1592,5 @@
         })();
     </script>
 </body>
+
 </html>
