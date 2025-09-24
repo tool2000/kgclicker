@@ -160,6 +160,19 @@
             color: #64748b;
         }
 
+        .hint-link {
+            display: inline-block;
+            font-size: 0.85rem;
+            color: #2563eb;
+            text-decoration: none;
+            margin-top: -4px;
+        }
+
+        .hint-link:hover,
+        .hint-link:focus {
+            text-decoration: underline;
+        }
+
         .button-row {
             display: flex;
             gap: 12px;
@@ -332,6 +345,23 @@
                     <span class="hint">Accepts <code>.json</code> exports from kg-gen</span>
                 </div>
                 <input type="file" id="graphFile" accept="application/json,.json" hidden />
+                <div class="field-group">
+                    <div class="field">
+                        <label for="exampleGraph">Or load a sample</label>
+                        <select id="exampleGraph" disabled>
+                            <option value="">Loading samples...</option>
+                        </select>
+                        <div class="hint" id="exampleStatus">Select an example to load it instantly.</div>
+                        <a
+                            id="exampleLink"
+                            class="hint-link"
+                            href="#"
+                            target="_blank"
+                            rel="noopener"
+                            hidden
+                        >View on Wikipedia</a>
+                    </div>
+                </div>
             </section>
 
             <section class="card" id="generateCard">
@@ -910,6 +940,9 @@
 
             const graphFileInput = document.getElementById('graphFile');
             const graphDropZone = document.getElementById('graphDropZone');
+            const exampleSelect = document.getElementById('exampleGraph');
+            const exampleLink = document.getElementById('exampleLink');
+            const exampleStatus = document.getElementById('exampleStatus');
 
             const apiKeyInput = document.getElementById('apiKey');
             const modelSelect = document.getElementById('model');
@@ -924,6 +957,7 @@
             const clearTextButton = document.getElementById('clearTextButton');
 
             const refreshCallbacks = [];
+            const exampleMetadata = new Map();
 
             let templateHtml = null;
             let activeUrl = null;
@@ -961,6 +995,91 @@
                 downloadButton.removeAttribute('hidden');
                 refreshButton.removeAttribute('hidden');
                 floatingActions.removeAttribute('hidden');
+            }
+
+            function updateExampleLink(meta) {
+                if (meta && meta.wiki_url) {
+                    exampleLink.href = meta.wiki_url;
+                    const label = meta.title ? `View ${meta.title} on Wikipedia` : 'View on Wikipedia';
+                    exampleLink.textContent = label;
+                    exampleLink.removeAttribute('hidden');
+                } else {
+                    exampleLink.setAttribute('hidden', 'hidden');
+                    exampleLink.href = '#';
+                    exampleLink.textContent = 'View on Wikipedia';
+                }
+            }
+
+            async function loadExamples() {
+                if (!exampleSelect) {
+                    return;
+                }
+
+                exampleSelect.disabled = true;
+                exampleMetadata.clear();
+                exampleSelect.innerHTML = '';
+                const loadingOption = document.createElement('option');
+                loadingOption.value = '';
+                loadingOption.textContent = 'Loading samples...';
+                exampleSelect.appendChild(loadingOption);
+                exampleStatus.textContent = 'Loading sample graphs...';
+                updateExampleLink(null);
+
+                try {
+                    const response = await fetch('/api/examples');
+                    const items = await response.json();
+                    if (!response.ok) {
+                        throw new Error(Array.isArray(items?.detail) ? items.detail.join('; ') : items?.detail || 'Failed to load sample list');
+                    }
+
+                    if (!Array.isArray(items) || !items.length) {
+                        const emptyOption = document.createElement('option');
+                        emptyOption.value = '';
+                        emptyOption.textContent = 'No samples available';
+                        exampleSelect.innerHTML = '';
+                        exampleSelect.appendChild(emptyOption);
+                        exampleStatus.textContent = 'Sample graphs are not available right now.';
+                        return;
+                    }
+
+                    exampleSelect.innerHTML = '';
+                    const placeholderOption = document.createElement('option');
+                    placeholderOption.value = '';
+                    placeholderOption.textContent = 'Pick a sample graph...';
+                    exampleSelect.appendChild(placeholderOption);
+
+                    items.forEach(item => {
+                        if (!item || !item.slug) {
+                            return;
+                        }
+                        exampleMetadata.set(item.slug, item);
+                        const option = document.createElement('option');
+                        option.value = item.slug;
+                        option.textContent = item.title || item.slug;
+                        exampleSelect.appendChild(option);
+                    });
+
+                    if (exampleMetadata.size === 0) {
+                        const fallbackOption = document.createElement('option');
+                        fallbackOption.value = '';
+                        fallbackOption.textContent = 'Samples unavailable';
+                        exampleSelect.innerHTML = '';
+                        exampleSelect.appendChild(fallbackOption);
+                        exampleStatus.textContent = 'Sample graphs are not available right now.';
+                        return;
+                    }
+
+                    exampleSelect.disabled = false;
+                    exampleStatus.textContent = 'Select an example to load it instantly.';
+                } catch (error) {
+                    console.error('[kg-gen] Failed to load example graphs', error);
+                    exampleSelect.innerHTML = '';
+                    const fallbackOption = document.createElement('option');
+                    fallbackOption.value = '';
+                    fallbackOption.textContent = 'Samples unavailable';
+                    exampleSelect.appendChild(fallbackOption);
+                    exampleStatus.textContent = 'Could not load sample graphs.';
+                }
             }
 
             function extractSummary(viewModel) {
@@ -1196,6 +1315,54 @@
                 graphFileInput.value = '';
             });
 
+            if (exampleSelect) {
+                exampleSelect.addEventListener('change', async event => {
+                    const slug = event.target.value;
+                    if (!slug) {
+                        exampleStatus.textContent = exampleMetadata.size
+                            ? 'Select an example to load it instantly.'
+                            : exampleStatus.textContent;
+                        updateExampleLink(null);
+                        return;
+                    }
+
+                    const meta = exampleMetadata.get(slug) || null;
+                    updateExampleLink(meta);
+                    const title = meta?.title || slug;
+                    exampleStatus.textContent = `Loading ${title}...`;
+                    setStatus(`Loading example graph: ${title}...`);
+                    resetViewer();
+
+                    exampleSelect.disabled = true;
+                    try {
+                        const response = await fetch(`/api/examples/${slug}`);
+                        let payload;
+                        try {
+                            payload = await response.json();
+                        } catch (parseError) {
+                            if (response.ok) {
+                                throw new Error('Example payload is not valid JSON');
+                            }
+                            throw new Error(`Request failed (${response.status})`);
+                        }
+
+                        if (!response.ok) {
+                            const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
+                            throw new Error(message);
+                        }
+
+                        await handleGraphData(payload);
+                        exampleStatus.textContent = `Loaded ${title}.`;
+                    } catch (error) {
+                        console.error('[kg-gen] Failed to load example graph', error);
+                        setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
+                        exampleStatus.textContent = 'Could not load the selected sample.';
+                    } finally {
+                        exampleSelect.disabled = exampleMetadata.size === 0;
+                    }
+                });
+            }
+
             ['dragenter', 'dragover'].forEach(eventName => {
                 graphDropZone.addEventListener(eventName, event => {
                     event.preventDefault();
@@ -1261,6 +1428,9 @@
 
             loadTemplate().catch(() => {
                 /* Status already updated in loadTemplate */
+            });
+            loadExamples().catch(() => {
+                /* Errors handled inside loadExamples */
             });
         })();
     </script>

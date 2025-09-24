@@ -1,6 +1,8 @@
 from __future__ import annotations
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+import json
 
 import logging
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -16,6 +18,40 @@ APP_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = (
     APP_DIR.parent / "src" / "kg_gen" / "utils" / "template.html"
 ).resolve()
+DATA_ROOT = (APP_DIR.parent / "app" / "samples").resolve()
+
+
+@dataclass(frozen=True)
+class ExampleGraph:
+    slug: str
+    title: str
+    path: Path
+    wiki_url: str
+
+
+# TODO: this will be read from huggingface once it is uploaded.
+EXAMPLE_GRAPHS: tuple[ExampleGraph, ...] = ()
+for file in DATA_ROOT.glob("*.json"):
+    EXAMPLE_GRAPHS += (
+        ExampleGraph(
+            slug=file.stem,
+            title=file.stem,
+            path=file,
+            wiki_url=f"https://en.wikipedia.org/wiki/{file.stem}",
+        ),
+    )
+
+
+EXAMPLE_INDEX = {
+    example.slug: example for example in EXAMPLE_GRAPHS if example.path.exists()
+}
+
+if len(EXAMPLE_INDEX) < len(EXAMPLE_GRAPHS):
+    missing = [
+        example.slug for example in EXAMPLE_GRAPHS if example.slug not in EXAMPLE_INDEX
+    ]
+    logger = logging.getLogger("kg_gen_app")
+    logger.warning("Example graphs missing on disk: %s", ", ".join(missing))
 
 if not TEMPLATE_PATH.exists():
     raise RuntimeError(f"Template not found at {TEMPLATE_PATH}")
@@ -52,6 +88,40 @@ async def serve_index() -> HTMLResponse:
 async def serve_template() -> FileResponse:
     logger.debug("Serving visualization template from %s", TEMPLATE_PATH)
     return FileResponse(TEMPLATE_PATH, media_type="text/html")
+
+
+@app.get("/api/examples")
+async def list_examples() -> JSONResponse:
+    logger.debug("Listing built-in example graphs")
+    items = [
+        {"slug": example.slug, "title": example.title, "wiki_url": example.wiki_url}
+        for example in sorted(
+            EXAMPLE_INDEX.values(), key=lambda item: item.title.lower()
+        )
+    ]
+    return JSONResponse(items)
+
+
+@app.get("/api/examples/{slug}")
+async def load_example(slug: str) -> JSONResponse:
+    example = EXAMPLE_INDEX.get(slug)
+    if example is None:
+        raise HTTPException(status_code=404, detail=f"Example '{slug}' not found")
+
+    if not example.path.exists():
+        logger.error("Example graph missing: %s", example.path)
+        raise HTTPException(status_code=404, detail=f"Example '{slug}' is unavailable")
+
+    try:
+        payload = json.loads(example.path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        logger.exception("Failed to parse example graph %s", slug)
+        raise HTTPException(
+            status_code=500, detail=f"Example '{slug}' is invalid: {exc}"
+        )
+
+    logger.info("Loaded example graph '%s' from %s", slug, example.path)
+    return JSONResponse(payload)
 
 
 @app.post("/api/graph/view")
