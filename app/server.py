@@ -8,6 +8,7 @@ import logging
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 from src.kg_gen.kg_gen import KGGen
@@ -272,3 +273,7 @@ async def generate_graph(
         len(graph.relations),
     )
     return JSONResponse({"view": view, "graph": graph.model_dump(mode="json")})
+
+
+# Serve static files (CSS, JS, etc.) - must be mounted after all routes
+app.mount("/", StaticFiles(directory=APP_DIR, html=True), name="static")
