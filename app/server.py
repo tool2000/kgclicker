@@ -74,6 +74,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+kg_gen = KGGen()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -233,7 +234,7 @@ async def generate_graph(
         if numeric_temperature is None:
             numeric_temperature = 1.0
 
-    kg = KGGen(model=model, api_key=api_key, temperature=numeric_temperature)
+    kg_gen.init_model(model=model, api_key=api_key, temperature=numeric_temperature)
 
     logger.info(
         "Generating graph via KGGen: model=%s cluster=%s chunk_size=%s context_len=%s text_len=%s temperature=%s",
@@ -245,7 +246,7 @@ async def generate_graph(
         numeric_temperature,
     )
     try:
-        graph = kg.generate(
+        graph = kg_gen.generate(
             input_data=request_text,
             model=model,
             api_key=api_key,

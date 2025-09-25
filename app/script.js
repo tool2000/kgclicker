@@ -619,8 +619,135 @@
     const generateButton = document.getElementById('generateButton');
     const clearTextButton = document.getElementById('clearTextButton');
 
+    console.log('[kg-gen] Element refs:', {
+        apiKeyInput: !!apiKeyInput,
+        modelSelect: !!modelSelect,
+        chunkSizeInput: !!chunkSizeInput,
+        temperatureInput: !!temperatureInput,
+        clusterToggle: !!clusterToggle,
+        contextInput: !!contextInput
+    });
+
     const refreshCallbacks = [];
     const exampleMetadata = new Map();
+
+    // localStorage keys for caching form inputs
+    const CACHE_KEYS = {
+        apiKey: 'kg-gen-api-key',
+        model: 'kg-gen-model',
+        chunkSize: 'kg-gen-chunk-size',
+        temperature: 'kg-gen-temperature',
+        cluster: 'kg-gen-cluster',
+        context: 'kg-gen-context'
+    };
+
+    // Load cached form values from localStorage
+    function loadCachedInputs() {
+        console.log('[kg-gen] Loading cached inputs...');
+        try {
+            // Load API key
+            const cachedApiKey = localStorage.getItem(CACHE_KEYS.apiKey);
+            console.log('[kg-gen] Cached API key exists:', !!cachedApiKey);
+            if (cachedApiKey && apiKeyInput) {
+                apiKeyInput.value = cachedApiKey;
+                console.log('[kg-gen] API key loaded');
+            }
+
+            // Load model
+            const cachedModel = localStorage.getItem(CACHE_KEYS.model);
+            console.log('[kg-gen] Cached model:', cachedModel);
+            if (cachedModel && modelSelect) {
+                modelSelect.value = cachedModel;
+                console.log('[kg-gen] Model loaded:', modelSelect.value);
+            }
+
+            // Load chunk size
+            const cachedChunkSize = localStorage.getItem(CACHE_KEYS.chunkSize);
+            if (cachedChunkSize && chunkSizeInput) {
+                chunkSizeInput.value = cachedChunkSize;
+            }
+
+            // Load temperature
+            const cachedTemperature = localStorage.getItem(CACHE_KEYS.temperature);
+            if (cachedTemperature && temperatureInput) {
+                temperatureInput.value = cachedTemperature;
+            }
+
+            // Load cluster toggle
+            const cachedCluster = localStorage.getItem(CACHE_KEYS.cluster);
+            if (cachedCluster !== null && clusterToggle) {
+                clusterToggle.checked = cachedCluster === 'true';
+            }
+
+            // Load context
+            const cachedContext = localStorage.getItem(CACHE_KEYS.context);
+            if (cachedContext && contextInput) {
+                contextInput.value = cachedContext;
+            }
+
+            console.log('[kg-gen] Cached inputs loaded successfully');
+        } catch (error) {
+            console.warn('[kg-gen] Failed to load cached inputs:', error);
+        }
+    }
+
+    // Save form input to localStorage
+    function saveCachedInput(key, value) {
+        try {
+            if (value !== undefined && value !== null) {
+                localStorage.setItem(key, String(value));
+            } else {
+                localStorage.removeItem(key);
+            }
+        } catch (error) {
+            console.warn('[kg-gen] Failed to save cached input:', key, error);
+        }
+    }
+
+    // Setup input change listeners for caching
+    function setupInputCaching() {
+        // API key caching
+        if (apiKeyInput) {
+            apiKeyInput.addEventListener('input', () => {
+                saveCachedInput(CACHE_KEYS.apiKey, apiKeyInput.value);
+            });
+        }
+
+        // Model caching
+        if (modelSelect) {
+            modelSelect.addEventListener('change', () => {
+                saveCachedInput(CACHE_KEYS.model, modelSelect.value);
+            });
+        }
+
+        // Chunk size caching
+        if (chunkSizeInput) {
+            chunkSizeInput.addEventListener('input', () => {
+                saveCachedInput(CACHE_KEYS.chunkSize, chunkSizeInput.value);
+            });
+        }
+
+        // Temperature caching
+        if (temperatureInput) {
+            temperatureInput.addEventListener('input', () => {
+                saveCachedInput(CACHE_KEYS.temperature, temperatureInput.value);
+            });
+        }
+
+        // Cluster toggle caching
+        if (clusterToggle) {
+            clusterToggle.addEventListener('change', () => {
+                saveCachedInput(CACHE_KEYS.cluster, clusterToggle.checked);
+            });
+        }
+
+        // Context caching
+        if (contextInput) {
+            contextInput.addEventListener('input', () => {
+                saveCachedInput(CACHE_KEYS.context, contextInput.value);
+            });
+        }
+    }
 
     const modelDefaultTemperature = new Map([
         ['openai/gpt-5', 1.0],
@@ -1124,11 +1251,8 @@
         event.preventDefault();
         sourceText.value = '';
         textFileInput.value = '';
-        contextInput.value = '';
-        chunkSizeInput.value = '';
-        temperatureInput.value = '';
-        clusterToggle.checked = false;
-        setStatus('Inputs cleared. Ready for new text.');
+        // Note: Cached inputs (api key, model, chunk size, temperature, cluster, context) are preserved
+        setStatus('Text inputs cleared. Cached settings preserved.');
     });
 
     downloadButton.addEventListener('click', () => {
@@ -1153,6 +1277,20 @@
         const latest = refreshCallbacks[refreshCallbacks.length - 1];
         latest?.();
     });
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('[kg-gen] DOM loaded, initializing caching...');
+            loadCachedInputs();
+            setupInputCaching();
+        });
+    } else {
+        // DOM is already loaded
+        console.log('[kg-gen] DOM already loaded, initializing caching...');
+        loadCachedInputs();
+        setupInputCaching();
+    }
 
     loadTemplate().catch(() => {
         /* Status already updated in loadTemplate */

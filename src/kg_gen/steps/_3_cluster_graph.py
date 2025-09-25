@@ -276,7 +276,7 @@ def cluster_items(
     return new_items, final_clusters_dict
 
 
-def cluster_graph(dspy: dspy, graph: Graph, context: str = "") -> Graph:
+def cluster_graph(graph: Graph, context: str = "") -> Graph:
     """Cluster entities and edges in a graph, updating relations accordingly.
 
     Args:

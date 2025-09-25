@@ -58,7 +58,6 @@ def fallback_extraction_sig(
 
 
 def get_relations(
-    dspy: dspy,
     input_data: str,
     entities: list[str],
     is_conversation: bool = False,

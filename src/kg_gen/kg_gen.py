@@ -41,7 +41,6 @@ class KGGen:
             api_key: API key for model access
             api_base: Specify the base URL endpoint for making API calls to a language model service
         """
-        self.dspy = dspy
         self.model = model
         self.reasoning_effort = reasoning_effort
         self.max_tokens = max_tokens
@@ -49,6 +48,7 @@ class KGGen:
         self.api_key = api_key
         self.api_base = api_base
         self.retrieval_model: Optional[SentenceTransformer] = None
+        self.lm = None
 
         self.init_model(
             model=model,
@@ -136,8 +136,6 @@ class KGGen:
                 reasoning_effort=self.reasoning_effort,
             )
 
-        self.dspy.configure(lm=self.lm)
-
     @staticmethod
     def from_file(file_path: str) -> Graph:
         with open(file_path, "r") as f:
@@ -202,29 +200,31 @@ class KGGen:
             )
 
         if not chunk_size:
-            entities = get_entities(
-                self.dspy, processed_input, is_conversation=is_conversation
-            )
-            relations = get_relations(
-                self.dspy, processed_input, entities, is_conversation=is_conversation
-            )
+            with dspy.context(lm=self.lm):
+                entities = get_entities(
+                    processed_input, is_conversation=is_conversation
+                )
+                relations = get_relations(
+                    processed_input, entities, is_conversation=is_conversation
+                )
         else:
             chunks = chunk_text(processed_input, chunk_size)
             entities = set()
             relations = set()
 
-            def process_chunk(chunk):
-                chunk_entities = get_entities(
-                    self.dspy, chunk, is_conversation=is_conversation
-                )
-                chunk_relations = get_relations(
-                    self.dspy, chunk, chunk_entities, is_conversation=is_conversation
-                )
-                return chunk_entities, chunk_relations
+            def process_chunk(chunk, lm):
+                with dspy.context(lm=lm):
+                    chunk_entities = get_entities(chunk, is_conversation)
+                    chunk_relations = get_relations(
+                        chunk, chunk_entities, is_conversation=is_conversation
+                    )
+                    return chunk_entities, chunk_relations
 
             # Process chunks in parallel using ThreadPoolExecutor
             with ThreadPoolExecutor() as executor:
-                results = list(executor.map(process_chunk, chunks))
+                results = list(
+                    executor.map(process_chunk, chunks, [self.lm] * len(chunks))
+                )
 
             # Combine results
             for chunk_entities, chunk_relations in results:
@@ -277,7 +277,8 @@ class KGGen:
                 api_base=api_base or self.api_base,
             )
 
-        return cluster_graph(self.dspy, graph, context)
+        with dspy.context(lm=self.lm):
+            return cluster_graph(graph, context)
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
         # Initialize empty sets for combined graph
