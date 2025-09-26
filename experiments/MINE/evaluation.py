@@ -3,7 +3,7 @@ import sys
 import os
 
 # Add the src directory to Python path to import from source code
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from kg_gen.kg_gen import KGGen
 import networkx as nx
@@ -81,28 +81,28 @@ def load_evaluation_data(answers_repo: str = "kyssen/kg-gen-evaluation-answers")
     try:
         # Load answers dataset from Hugging Face
         answers_dataset = load_dataset(answers_repo)
-        
+
         # Extract answers
         answers = [item["answers"] for item in answers_dataset["train"].to_list()]
-        
+
         print(f"Loaded {len(answers)} answer sets from Hugging Face")
         return answers
-        
+
     except Exception as e:
         print(f"Failed to load from Hugging Face: {e}")
         print("Falling back to local files...")
-        
+
         # Fallback to local files
         with open("MINE/answers.json", "r") as f:
             answers = json.load(f)
-            
+
         return answers
 
 
 def main():
     # Load data from Hugging Face (with local fallback)
     all_questions_answers = load_evaluation_data()
-    
+
     json_files = [f"MINE/results/kggen/{i}.json" for i in range(1, 107)]
 
     kggen = KGGen(retrieval_model="all-MiniLM-L6-v2")
