@@ -5,20 +5,19 @@ GCP_PROJECT_ID=kggen-ai
 CLOUD_RUN_SERVICE=app
 CLOUD_RUN_REGION=us-central1
 ARTIFACT_REGISTRY_REPO=app
-
-for var in GCP_PROJECT_ID CLOUD_RUN_SERVICE CLOUD_RUN_REGION ARTIFACT_REGISTRY_REPO; do
-  if [[ -z "${!var:-}" ]]; then
-    echo "[deploy] Missing required environment variable: $var" >&2
-    exit 1
-  fi
-done
-
 IMAGE_NAME=${IMAGE_NAME:-cloud-run-app}
 IMAGE_TAG=${IMAGE_TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%s)}
 ARTIFACT_REGISTRY_LOCATION=${ARTIFACT_REGISTRY_LOCATION:-$CLOUD_RUN_REGION}
 IMAGE_URI="${ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 
 printf "[deploy] Building and pushing image %s\n" "$IMAGE_URI"
+
+# Change to project root for build context
+cd "$(dirname "$0")/.."
+
+# Create symlink to Dockerfile for gcloud builds
+ln -sf app/Dockerfile Dockerfile
+ln -sf app/.dockerignore .dockerignore
 
 gcloud builds submit --tag "$IMAGE_URI" --project "$GCP_PROJECT_ID" .
 
