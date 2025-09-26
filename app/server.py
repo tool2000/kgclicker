@@ -19,7 +19,7 @@ APP_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = (
     APP_DIR.parent / "src" / "kg_gen" / "utils" / "template.html"
 ).resolve()
-DATA_ROOT = (APP_DIR.parent / "app" / "samples").resolve()
+DATA_ROOT = (APP_DIR.parent / "app" / "examples").resolve()
 
 
 @dataclass(frozen=True)
