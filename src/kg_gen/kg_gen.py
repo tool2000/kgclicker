@@ -142,6 +142,10 @@ class KGGen:
             graph = Graph(**json.load(f))
         return graph
 
+    @staticmethod
+    def from_dict(graph_dict: dict) -> Graph:
+        return Graph(**graph_dict)
+
     def generate(
         self,
         input_data: Union[str, List[Dict]],
