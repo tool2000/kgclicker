@@ -11,5 +11,5 @@ class Graph(BaseModel):
     relations: set[Tuple[str, str, str]] = Field(
         ..., description="List of (subject, predicate, object) triples"
     )
-    entity_clusters: Optional[dict[str, set[str]]] = None
-    edge_clusters: Optional[dict[str, set[str]]] = None
+    entity_clusters: Optional[dict[str, set[str]]] = {}
+    edge_clusters: Optional[dict[str, set[str]]] = {}

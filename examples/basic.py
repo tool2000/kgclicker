@@ -1,7 +1,7 @@
-# from kg_gen.models import Graph
-# import json
+from kg_gen.models import Graph  # noqa: F401
+import json  # noqa: F401
 from kg_gen import KGGen
-import os
+import os  # noqa: F401
 
 text = """
 A Place for Demons
@@ -32,11 +32,11 @@ with open("tests/data/kingkiller_chapter_one.txt", "r", encoding="utf-8") as f:
 
 graph = kg.generate(
     input_data=text,
-    model="openai/gpt-4o",
+    model="openai/gpt-5-nano",
     api_key=os.getenv("OPENAI_API_KEY"),
     chunk_size=1000,
     cluster=True,
-    temperature=0.0,
+    temperature=1.0,
     context="Kingkiller Chronicles",
     output_folder="./examples/",
 )
