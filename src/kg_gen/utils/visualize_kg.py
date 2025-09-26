@@ -28,7 +28,13 @@ def _sorted_ignore_case(items: Iterable[str]) -> list[str]:
 
 
 def _build_view_model(graph: Graph) -> dict[str, Any]:
-    entities = _sorted_ignore_case(graph.entities)
+    # Collect all entities from both the entities set and relations
+    all_entities = set(graph.entities)
+    for subject, _, obj in graph.relations:
+        all_entities.add(subject)
+        all_entities.add(obj)
+    entities = _sorted_ignore_case(all_entities)
+
     relations = sorted(
         graph.relations,
         key=lambda triple: (triple[1].lower(), triple[0].lower(), triple[2].lower()),

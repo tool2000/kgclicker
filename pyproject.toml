@@ -51,6 +51,4 @@ dev = [
 testpaths = ["tests"]
 
 [tool.uv.workspace]
-members = [
-    "scratch",
-]
+members = ["scratch"]

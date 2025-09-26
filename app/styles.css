@@ -262,7 +262,7 @@
             position: absolute;
             top: 24px;
             right: 24px;
-            display: flex;
+            display: none;
             gap: 8px;
         }
 

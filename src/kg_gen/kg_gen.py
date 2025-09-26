@@ -254,8 +254,12 @@ class KGGen:
                 "edges": list(graph.edges),
                 "entity_clusters": {
                     k: list(v) for k, v in graph.entity_clusters.items()
-                },
-                "edge_clusters": {k: list(v) for k, v in graph.edge_clusters.items()},
+                }
+                if graph.entity_clusters
+                else None,
+                "edge_clusters": {k: list(v) for k, v in graph.edge_clusters.items()}
+                if graph.edge_clusters
+                else None,
             }
 
             with open(output_path, "w") as f:

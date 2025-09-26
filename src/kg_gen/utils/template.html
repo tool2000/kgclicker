@@ -28,6 +28,11 @@
             display: grid;
             grid-template-columns: 360px 1fr;
             height: 100vh;
+            transition: grid-template-columns 0.3s ease;
+        }
+
+        .layout.sidebar-collapsed {
+            grid-template-columns: 0px 1fr;
         }
 
         .sidebar {
@@ -35,6 +40,14 @@
             border-right: 1px solid #e2e8f0;
             padding: 24px 24px 16px;
             overflow-y: auto;
+            transition: width 0.3s ease, opacity 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            padding: 24px 0 16px;
+            overflow: hidden;
+            opacity: 0;
         }
 
         .sidebar h1 {
@@ -169,6 +182,35 @@
         .tab.active {
             background: #1d4ed8;
             color: #ffffff;
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-toggle:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .sidebar-toggle::before {
+            content: '☰';
+            margin-right: 6px;
+        }
+
+        .sidebar-toggle.collapsed::before {
+            content: '☰';
         }
 
         .tab-panel {
@@ -367,7 +409,8 @@
             </div>
         </aside>
         <main class="main">
-            <div class="tab-bar">
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar"></button>
+            <div class="tab-bar" style="padding-bottom: 10px;">
                 <button class="tab active" data-tab="network">Network</button>
                 <button class="tab" data-tab="relations">Relations</button>
                 <button class="tab" data-tab="insights">Insights</button>
@@ -411,7 +454,8 @@
                 activeElement: null,
                 focusCluster: null,
                 focusPredicate: null,
-                searchTerm: ''
+                searchTerm: '',
+                sidebarCollapsed: false
             };
 
             const nodeById = Object.fromEntries(vizData.nodes.map(node => [node.id, node]));
@@ -883,6 +927,29 @@
                 }
             }
 
+            function toggleSidebar() {
+                state.sidebarCollapsed = !state.sidebarCollapsed;
+                const layout = document.querySelector('.layout');
+                const sidebar = document.querySelector('.sidebar');
+                const toggleButton = document.getElementById('sidebarToggle');
+
+                layout.classList.toggle('sidebar-collapsed', state.sidebarCollapsed);
+                sidebar.classList.toggle('collapsed', state.sidebarCollapsed);
+                toggleButton.classList.toggle('collapsed', state.sidebarCollapsed);
+
+                // Update network visualization size when sidebar toggles
+                setTimeout(() => {
+                    const networkCanvas = document.getElementById('networkCanvas');
+                    if (networkCanvas && networkCanvas.firstChild) {
+                        const svg = networkCanvas.querySelector('svg');
+                        if (svg) {
+                            const rect = networkCanvas.getBoundingClientRect();
+                            svg.attr('width', rect.width).attr('height', rect.height);
+                        }
+                    }
+                }, 300); // Wait for transition to complete
+            }
+
             function bindInteractions() {
                 document.querySelectorAll('.cluster-item').forEach(item => {
                     item.addEventListener('click', () => toggleClusterFocus(item.getAttribute('data-cluster')));
@@ -927,6 +994,8 @@
                         });
                     });
                 });
+
+                document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
             }
 
             renderStats();
