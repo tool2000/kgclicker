@@ -5,8 +5,29 @@ from huggingface_hub import whoami
 from typing import List, Dict, Any
 
 
+def extract_accuracy(responses: Dict[str, Any] | None) -> float | None:
+    """Extract accuracy from response object and convert to float"""
+    if responses is None:
+        return None
+
+    # Get the last item if it's a list, otherwise use the object directly
+    if isinstance(responses, list) and len(responses) > 0:
+        last_item = responses[-1]
+    else:
+        last_item = responses
+
+    if isinstance(last_item, dict) and "accuracy" in last_item:
+        accuracy_str = last_item["accuracy"]
+        if isinstance(accuracy_str, str) and accuracy_str.endswith("%"):
+            try:
+                return float(accuracy_str.rstrip("%")) / 100.0
+            except ValueError:
+                return None
+    return None
+
+
 def load_kg_queries_and_essays() -> List[Dict[str, Any]]:
-    """Load all KG JSON files and their corresponding generated queries and essays"""
+    """Load all KG JSON files, their corresponding generated queries, essays, and evaluation results"""
 
     # Load answers (generated queries)
     with open("experiments/MINE/answers.json", "r") as f:
@@ -16,7 +37,7 @@ def load_kg_queries_and_essays() -> List[Dict[str, Any]]:
     with open("experiments/MINE/essays.json", "r") as f:
         all_essays = json.load(f)
 
-    # Find all {i}.json files (excluding {i}_results.json)
+    # Find all {i}.json files (excluding {i}_results*.json)
     kg_files, graphrag_files, openie_files = [], [], []
     for i in range(1, 110):
         file_path = f"experiments/MINE/results/kggen/{i}.json"
@@ -40,6 +61,19 @@ def load_kg_queries_and_essays() -> List[Dict[str, Any]]:
         with open(file_path, "r") as f:
             kg_data = json.load(f)
 
+        # Load KG responses data
+        kg_responses_path = file_path.replace(".json", "_results.json")
+        if not os.path.exists(kg_responses_path):
+            # Try alternative suffixes
+            kg_responses_path = file_path.replace(".json", "_resultsG.json")
+            if not os.path.exists(kg_responses_path):
+                kg_responses_path = file_path.replace(".json", "_resultsN.json")
+        if os.path.exists(kg_responses_path):
+            with open(kg_responses_path, "r") as f:
+                kg_responses = json.load(f)
+        else:
+            kg_responses = None
+
         graphrag_file_path = file_path.replace("kggen", "GraphRAG")
         if os.path.exists(graphrag_file_path):
             with open(graphrag_file_path, "r") as f:
@@ -47,12 +81,28 @@ def load_kg_queries_and_essays() -> List[Dict[str, Any]]:
         else:
             graphrag_data = None
 
+        # Load GraphRAG responses data
+        graphrag_responses_path = graphrag_file_path.replace(".json", "_resultsG.json")
+        if os.path.exists(graphrag_responses_path):
+            with open(graphrag_responses_path, "r") as f:
+                graphrag_responses = json.load(f)
+        else:
+            graphrag_responses = None
+
         openie_file_path = file_path.replace("kggen", "OpenIE")
         if os.path.exists(openie_file_path):
             with open(openie_file_path, "r") as f:
                 openie_data = json.load(f)
         else:
             openie_data = None
+
+        # Load OpenIE responses data
+        openie_responses_path = openie_file_path.replace(".json", "_resultsST.json")
+        if os.path.exists(openie_responses_path):
+            with open(openie_responses_path, "r") as f:
+                openie_responses = json.load(f)
+        else:
+            openie_responses = None
 
         generated_queries = all_answers[idx - 1] if idx - 1 < len(all_answers) else []
         generated_queries = [qa["answer"] for qa in generated_queries]
@@ -72,11 +122,19 @@ def load_kg_queries_and_essays() -> List[Dict[str, Any]]:
             "kggen": kg_data,
             "graphrag_kg": graphrag_data,
             "openie_kg": openie_data,
+            "kggen_responses": kg_responses,
+            "graphrag_responses": graphrag_responses,
+            "openie_responses": openie_responses,
+            "kggen_accuracy": extract_accuracy(kg_responses),
+            "graphrag_accuracy": extract_accuracy(graphrag_responses),
+            "openie_accuracy": extract_accuracy(openie_responses),
         }
 
         dataset_entries.append(entry)
         print(
-            f"Processed {file_path} - Generated queries: {entry['num_generated_queries']}"
+            f"Processed {file_path} - Generated queries: {entry['num_generated_queries']}, "
+            f"Responses: KG={kg_responses is not None}, GraphRAG={graphrag_responses is not None}, OpenIE={openie_responses is not None}, "
+            f"Accuracies: KG={entry['kggen_accuracy']}, GraphRAG={entry['graphrag_accuracy']}, OpenIE={entry['openie_accuracy']}"
         )
 
     return dataset_entries
@@ -151,8 +209,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    # Example usage:
-    # python experiments/MINE/upload_dataset.py                        # Save locally and upload
-    # python experiments/MINE/upload_dataset.py --no-upload           # Only save locally
-    # python experiments/MINE/upload_dataset.py --verify              # Verify uploaded dataset

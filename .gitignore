@@ -15,6 +15,7 @@ data/
 .ruff_cache/
 examples/*.json
 examples/*.html
-MINE/results/kggen/*
+experiments/MINE/results
 .gcloud
-experiments/MINE/results/kggen
+experiments/MINE/answers.json
+experiments/MINE/essays.json
