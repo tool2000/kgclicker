@@ -17,4 +17,4 @@ examples/*.json
 examples/*.html
 MINE/results/kggen/*
 .gcloud
-experiments/MINE/results/kggen/*
+experiments/MINE/results/kggen

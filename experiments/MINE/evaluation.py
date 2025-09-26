@@ -129,4 +129,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    with open("experiments/MINE/answers.json", "r") as f:
+        answers = json.load(f)
+        print(len(answers))
