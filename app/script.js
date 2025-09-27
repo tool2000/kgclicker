@@ -869,64 +869,103 @@
         }
     }
 
-    function showLoadingInViewer(title, message) {
-        // If we have a loaded iframe, show loading there
-        if (viewer.contentWindow && !viewer.hasAttribute('hidden')) {
-            viewer.contentWindow.postMessage({
-                type: 'showLoading',
-                title: title,
-                message: message
-            }, '*');
-        } else {
-            // Otherwise, show loading in the placeholder area
-            showLoadingInPlaceholder(title, message);
-        }
+    // Global loading system - always shows full-screen overlay
+    function showGlobalLoading(title, message) {
+        showLoadingInPlaceholder(title, message);
     }
 
-    function hideLoadingInViewer() {
-        // Hide loading from iframe if present
-        if (viewer.contentWindow && !viewer.hasAttribute('hidden')) {
-            viewer.contentWindow.postMessage({
-                type: 'hideLoading'
-            }, '*');
-        }
-        // Always hide placeholder loading
+    function hideGlobalLoading() {
         hideLoadingInPlaceholder();
     }
 
+    // Legacy functions for backward compatibility - now use global loading
+    function showLoadingInViewer(title, message) {
+        showGlobalLoading(title, message);
+    }
+
+    function hideLoadingInViewer() {
+        hideGlobalLoading();
+    }
+
     function showLoadingInPlaceholder(title, message) {
-        const loadingHtml = `
-            <div class="loading-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;">
-                <div class="loading-card" style="background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); text-align: center; max-width: 300px; width: 100%;">
-                    <div class="loading-spinner" style="width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
-                    <h3 style="margin: 0 0 0.5rem; font-size: 1.125rem; font-weight: 600; color: #111827; word-break: break-word;">${title}</h3>
-                    <p style="margin: 0; color: #6b7280; font-size: 0.875rem; word-break: break-word;">${message}</p>
-                </div>
+        // Create loading overlay that covers entire screen
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'kg-gen-loading-overlay';
+        loadingOverlay.innerHTML = `
+            <div class="loading-card" style="background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); text-align: center; max-width: 300px; width: 100%; margin: auto;">
+                <div class="loading-spinner" style="width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                <h3 style="margin: 0 0 0.5rem; font-size: 1.125rem; font-weight: 600; color: #111827; word-break: break-word;">${title}</h3>
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem; word-break: break-word;">${message}</p>
             </div>
             <style>
+                #kg-gen-loading-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(255, 255, 255, 0.3);
+                    backdrop-filter: blur(1px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 999999;
+                    padding: 1rem;
+                    pointer-events: auto;
+                }
                 @keyframes spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
                 }
                 @media (max-width: 768px) {
-                    .loading-card {
+                    #kg-gen-loading-overlay .loading-card {
                         padding: 1.5rem !important;
                         max-width: 280px !important;
-                    }
-                    .loading-overlay {
-                        top: 60px !important; /* Account for mobile top bar */
                     }
                 }
             </style>
         `;
-        placeholder.innerHTML = loadingHtml;
-        placeholder.removeAttribute('hidden');
-        placeholder.style.display = 'flex';
-        placeholder.style.position = 'relative';
-        placeholder.style.minHeight = '100%';
+
+        // Remove any existing loading overlay
+        const existingOverlay = document.getElementById('kg-gen-loading-overlay');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+
+        // Add event listeners to prevent any clicks from going through
+        loadingOverlay.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }, true);
+
+        loadingOverlay.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }, true);
+
+        loadingOverlay.addEventListener('keydown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }, true);
+
+        // Append to body to cover everything
+        document.body.appendChild(loadingOverlay);
+
+        // Hide the placeholder to avoid showing duplicate loading text
+        placeholder.setAttribute('hidden', 'hidden');
+        placeholder.style.display = 'none';
     }
 
     function hideLoadingInPlaceholder() {
+        // Remove the full-screen loading overlay
+        const loadingOverlay = document.getElementById('kg-gen-loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.remove();
+        }
+
         placeholder.innerHTML = '';
         if (!hasLoadedGraph) {
             placeholder.setAttribute('hidden', 'hidden');
