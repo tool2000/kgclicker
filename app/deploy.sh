@@ -15,9 +15,12 @@ printf "[deploy] Building and pushing image %s\n" "$IMAGE_URI"
 # Change to project root for build context
 cd "$(dirname "$0")/.."
 
-# Copy Dockerfile to project root temporarily for the build
-cp app/Dockerfile Dockerfile
-cp app/.dockerignore .dockerignore 2>/dev/null || true
+rm -f Dockerfile .dockerignore
+
+cp -L app/Dockerfile Dockerfile
+if [[ -f app/.dockerignore ]]; then
+  cp -L app/.dockerignore .dockerignore
+fi
 
 gcloud builds submit --tag "$IMAGE_URI" --project "$GCP_PROJECT_ID" .
 
