@@ -600,6 +600,7 @@
 
     const viewer = document.getElementById('viewer');
     const placeholder = document.getElementById('placeholder');
+    const viewerWrapper = document.querySelector('.viewer-wrapper');
     const floatingActions = document.getElementById('floatingActions');
     const downloadButton = document.getElementById('downloadGraph');
     const refreshButton = document.getElementById('refreshView');
@@ -832,6 +833,9 @@
         floatingActions.setAttribute('hidden', 'hidden');
         refreshCallbacks.length = 0;
         hasLoadedGraph = false;
+        if (viewerWrapper) {
+            viewerWrapper.classList.remove('graph-loaded');
+        }
     }
 
     function showLoadingInViewer(title, message) {
@@ -1007,6 +1011,9 @@
         viewer.removeAttribute('hidden');
         placeholder.setAttribute('hidden', 'hidden');
         placeholder.style.display = 'none';
+        if (viewerWrapper) {
+            viewerWrapper.classList.add('graph-loaded');
+        }
         prepareDownload(graphForDownload || viewModel);
         lastViewModel = viewModel;
         setStatus(extractSummary(viewModel), 'success');
