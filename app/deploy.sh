@@ -17,14 +17,13 @@ cd "$(dirname "$0")/.."
 
 # Build using the Dockerfile in app/ directory but with project root as context
 gcloud builds submit \
-  --tag "$IMAGE_URI" \
   --project "$GCP_PROJECT_ID" \
   --config=- . <<EOF
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '$IMAGE_URI', '-f', 'app/Dockerfile', '.']
+    args: ['build', '-t', '${IMAGE_URI}', '-f', 'app/Dockerfile', '.']
 images:
-  - '$IMAGE_URI'
+  - '${IMAGE_URI}'
 EOF
 
 deploy_args=(
