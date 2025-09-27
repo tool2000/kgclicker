@@ -12,11 +12,20 @@ IMAGE_URI="${ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTI
 
 printf "[deploy] Building and pushing image %s\n" "$IMAGE_URI"
 
-# Change to app directory where Dockerfile exists
-cd "$(dirname "$0")"
+# Change to project root for build context
+cd "$(dirname "$0")/.."
 
-# Build from the app directory where Dockerfile is located
-gcloud builds submit --tag "$IMAGE_URI" --project "$GCP_PROJECT_ID" .
+# Build using the Dockerfile in app/ directory but with project root as context
+gcloud builds submit \
+  --tag "$IMAGE_URI" \
+  --project "$GCP_PROJECT_ID" \
+  --config=- . <<EOF
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', '$IMAGE_URI', '-f', 'app/Dockerfile', '.']
+images:
+  - '$IMAGE_URI'
+EOF
 
 deploy_args=(
   --image "$IMAGE_URI"
