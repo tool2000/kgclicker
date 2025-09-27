@@ -2,10 +2,10 @@
 set -euo pipefail
 
 GCP_PROJECT_ID=${GCP_PROJECT_ID:-kggen-ai}
-CLOUD_RUN_SERVICE=${CLOUD_RUN_SERVICE:-app}
+CLOUD_RUN_SERVICE=${CLOUD_RUN_SERVICE:-app-test}
 CLOUD_RUN_REGION=${CLOUD_RUN_REGION:-us-central1}
 ARTIFACT_REGISTRY_REPO=${ARTIFACT_REGISTRY_REPO:-app}
-IMAGE_NAME=${IMAGE_NAME:-cloud-run-app}
+IMAGE_NAME=${IMAGE_NAME:-cloud-run-app-test}
 IMAGE_TAG=${IMAGE_TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%s)}
 ARTIFACT_REGISTRY_LOCATION=${ARTIFACT_REGISTRY_LOCATION:-$CLOUD_RUN_REGION}
 IMAGE_URI="${ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
@@ -15,20 +15,21 @@ printf "[deploy] Building and pushing image %s\n" "$IMAGE_URI"
 # Change to project root for build context
 cd "$(dirname "$0")/.."
 
-# Create a Cloud Build config file that specifies the Dockerfile location
-cat > cloudbuild.yaml <<EOF
-steps:
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '${IMAGE_URI}', '-f', 'app/Dockerfile', '.']
-images:
-  - '${IMAGE_URI}'
-EOF
+# Ensure Dockerfile exists
+if [[ ! -f "app/Dockerfile" ]]; then
+  echo "ERROR: app/Dockerfile not found!"
+  exit 1
+fi
 
-# Submit the build using the config file
-gcloud builds submit --config=cloudbuild.yaml --project "$GCP_PROJECT_ID" .
+# Copy Dockerfile to root for Cloud Build (most reliable approach)
+cp app/Dockerfile Dockerfile
+cp app/.dockerignore .dockerignore 2>/dev/null || true
+
+# Submit build with Dockerfile at root
+gcloud builds submit --tag "$IMAGE_URI" --project "$GCP_PROJECT_ID" .
 
 # Clean up
-rm -f cloudbuild.yaml
+rm -f Dockerfile .dockerignore
 
 deploy_args=(
   --image "$IMAGE_URI"
