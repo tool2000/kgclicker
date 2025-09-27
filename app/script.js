@@ -161,6 +161,10 @@
         return result;
     }
 
+    function setStatus(message, type = 'info') {
+        // no operation per now
+    }
+
     function sanitizeGraphForBackend(rawGraph) {
         if (!rawGraph || typeof rawGraph !== 'object') {
             return rawGraph;
