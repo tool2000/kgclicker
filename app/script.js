@@ -600,6 +600,7 @@
 
     const viewer = document.getElementById('viewer');
     const placeholder = document.getElementById('placeholder');
+    const viewerWrapper = document.querySelector('.viewer-wrapper');
     const floatingActions = document.getElementById('floatingActions');
     const downloadButton = document.getElementById('downloadGraph');
     const refreshButton = document.getElementById('refreshView');
@@ -750,6 +751,60 @@
                 saveCachedInput(CACHE_KEYS.context, contextInput.value);
             });
         }
+
+        // Enhanced mutual exclusion with visual feedback
+        const sourceTextHint = document.getElementById('sourceTextHint');
+        const textFileHint = document.getElementById('textFileHint');
+
+        window.updateInputStates = function updateInputStates() {
+            const hasText = sourceText && sourceText.value.trim();
+            const hasFile = textFileInput && textFileInput.files && textFileInput.files.length > 0;
+            const hasContent = hasText || hasFile;
+
+            // Update input states
+            if (sourceText) {
+                sourceText.disabled = hasFile;
+            }
+            if (textFileInput) {
+                textFileInput.disabled = hasText;
+            }
+
+            // Update hint visibility
+            if (sourceTextHint) {
+                if (hasFile) {
+                    sourceTextHint.classList.add('show');
+                } else {
+                    sourceTextHint.classList.remove('show');
+                }
+            }
+            if (textFileHint) {
+                if (hasText) {
+                    textFileHint.classList.add('show');
+                } else {
+                    textFileHint.classList.remove('show');
+                }
+            }
+
+            // Update clear button style
+            if (clearTextButton) {
+                if (hasContent) {
+                    clearTextButton.classList.add('active');
+                } else {
+                    clearTextButton.classList.remove('active');
+                }
+            }
+        }
+
+        if (textFileInput) {
+            textFileInput.addEventListener('change', updateInputStates);
+        }
+
+        if (sourceText) {
+            sourceText.addEventListener('input', updateInputStates);
+        }
+
+        // Initial state
+        updateInputStates();
     }
 
     const modelDefaultTemperature = new Map([
@@ -794,6 +849,8 @@
     let activeUrl = null;
     let lastGraphPayload = null;
     let lastViewModel = null;
+    let isGenerating = false;
+    let hasLoadedGraph = false;
 
     function resetViewer() {
         if (activeUrl) {
@@ -806,6 +863,124 @@
         placeholder.style.display = 'flex';
         floatingActions.setAttribute('hidden', 'hidden');
         refreshCallbacks.length = 0;
+        hasLoadedGraph = false;
+        if (viewerWrapper) {
+            viewerWrapper.classList.remove('graph-loaded');
+        }
+    }
+
+    // Global loading system - always shows full-screen overlay
+    function showGlobalLoading(title, message) {
+        showLoadingInPlaceholder(title, message);
+    }
+
+    function hideGlobalLoading() {
+        hideLoadingInPlaceholder();
+    }
+
+    // Legacy functions for backward compatibility - now use global loading
+    function showLoadingInViewer(title, message) {
+        showGlobalLoading(title, message);
+    }
+
+    function hideLoadingInViewer() {
+        hideGlobalLoading();
+    }
+
+    function showLoadingInPlaceholder(title, message) {
+        // Create loading overlay that covers entire screen
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'kg-gen-loading-overlay';
+        loadingOverlay.innerHTML = `
+            <div class="loading-card" style="background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); text-align: center; max-width: 300px; width: 100%; margin: auto;">
+                <div class="loading-spinner" style="width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                <h3 style="margin: 0 0 0.5rem; font-size: 1.125rem; font-weight: 600; color: #111827; word-break: break-word;">${title}</h3>
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem; word-break: break-word;">${message}</p>
+            </div>
+            <style>
+                #kg-gen-loading-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(255, 255, 255, 0.3);
+                    backdrop-filter: blur(1px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 999999;
+                    padding: 1rem;
+                    pointer-events: auto;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                @media (max-width: 768px) {
+                    #kg-gen-loading-overlay .loading-card {
+                        padding: 1.5rem !important;
+                        max-width: 280px !important;
+                    }
+                }
+            </style>
+        `;
+
+        // Remove any existing loading overlay
+        const existingOverlay = document.getElementById('kg-gen-loading-overlay');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+
+        // Add event listeners to prevent any clicks from going through
+        loadingOverlay.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }, true);
+
+        loadingOverlay.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }, true);
+
+        loadingOverlay.addEventListener('keydown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }, true);
+
+        // Append to body to cover everything
+        document.body.appendChild(loadingOverlay);
+
+        // Hide the placeholder to avoid showing duplicate loading text
+        placeholder.setAttribute('hidden', 'hidden');
+        placeholder.style.display = 'none';
+    }
+
+    function hideLoadingInPlaceholder() {
+        // Remove the full-screen loading overlay
+        const loadingOverlay = document.getElementById('kg-gen-loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.remove();
+        }
+
+        placeholder.innerHTML = '';
+        if (!hasLoadedGraph) {
+            placeholder.setAttribute('hidden', 'hidden');
+            placeholder.style.display = 'flex';
+        }
+    }
+
+    function confirmGraphReplacement(action) {
+        if (!hasLoadedGraph || !isGenerating) {
+            return true;
+        }
+        return confirm(
+            'A graph is currently loaded. Proceeding will replace it.\n\n' +
+            'Continue with ' + action + '?'
+        );
     }
 
     function prepareDownload(graphJson) {
@@ -943,6 +1118,7 @@
 
     async function renderView(viewModel, graphForDownload) {
         console.info('[kg-gen] Rendering view model');
+        showLoadingInViewer('Rendering Graph', 'Building visualization...');
         await loadTemplate();
         const html = templateHtml.replace('<!--DATA-->', `\n${sanitizeJson(viewModel)}\n`);
         if (activeUrl) {
@@ -953,11 +1129,16 @@
         viewer.removeAttribute('hidden');
         placeholder.setAttribute('hidden', 'hidden');
         placeholder.style.display = 'none';
+        if (viewerWrapper) {
+            viewerWrapper.classList.add('graph-loaded');
+        }
         prepareDownload(graphForDownload || viewModel);
         lastViewModel = viewModel;
         setStatus(extractSummary(viewModel), 'success');
         refreshCallbacks.length = 0;
         refreshCallbacks.push(() => renderView(lastViewModel, lastGraphPayload));
+        hasLoadedGraph = true;
+        hideLoadingInViewer();
 
         // Notify sidebar manager about the new graph data
         if (window.sidebarManager) {
@@ -1052,8 +1233,25 @@
         if (!file) {
             return;
         }
+
+        if (!confirmGraphReplacement('file upload')) {
+            return;
+        }
+
         setStatus(`Reading ${file.name}...`);
         console.info('[kg-gen] Reading uploaded graph file', file.name);
+
+        // Hide mobile sidebar and show loading with proper timing
+        if (window.sidebarManager && window.sidebarManager.isMobile) {
+            window.sidebarManager.hideMobileSidebar();
+            // Give sidebar animation time to complete before showing loading
+            setTimeout(() => {
+                showLoadingInViewer('Loading Graph', `Reading ${file.name}...`);
+            }, 150);
+        } else {
+            showLoadingInViewer('Loading Graph', `Reading ${file.name}...`);
+        }
+
         try {
             const contents = await readFile(file);
             const json = JSON.parse(contents);
@@ -1061,6 +1259,7 @@
         } catch (error) {
             console.error(error);
             setStatus(`Could not load graph: ${error.message}`, 'error');
+            hideLoadingInViewer();
             resetViewer();
         }
     }
@@ -1081,6 +1280,14 @@
             setStatus('Provide some text or upload a .txt file.', 'error');
             return;
         }
+
+        if (!confirmGraphReplacement('graph generation')) {
+            return;
+        }
+
+        isGenerating = true;
+        generateButton.disabled = true;
+        generateButton.textContent = 'Generating...';
 
         const formData = new FormData();
         formData.append('api_key', apiKey);
@@ -1109,7 +1316,11 @@
             hasText: Boolean(pastedText),
             hasFile: Boolean(textFile)
         });
-        resetViewer();
+
+        showLoadingInViewer('Generating Graph', 'Running KGGen on your text. This may take a few minutes...');
+        if (!hasLoadedGraph) {
+            resetViewer();
+        }
 
         try {
             const response = await fetch('/api/generate', {
@@ -1145,6 +1356,11 @@
         } catch (error) {
             console.error(error);
             setStatus(`Generation failed: ${error.message}`, 'error');
+            hideLoadingInViewer();
+        } finally {
+            isGenerating = false;
+            generateButton.disabled = false;
+            generateButton.textContent = 'Generate graph';
         }
     }
 
@@ -1177,12 +1393,30 @@
                 return;
             }
 
+            if (!confirmGraphReplacement('example loading')) {
+                exampleSelect.value = '';
+                return;
+            }
+
             const meta = exampleMetadata.get(slug) || null;
             updateExampleLink(meta);
             const title = meta?.title || slug;
             exampleStatus.textContent = `Loading ${title}...`;
             setStatus(`Loading example graph: ${title}...`);
-            resetViewer();
+
+            // Hide mobile sidebar and show loading with proper timing
+            if (window.sidebarManager && window.sidebarManager.isMobile) {
+                window.sidebarManager.hideMobileSidebar();
+                // Give sidebar animation time to complete before showing loading
+                setTimeout(() => {
+                    showLoadingInViewer('Loading Example', `Loading ${title}...`);
+                }, 150);
+            } else {
+                showLoadingInViewer('Loading Example', `Loading ${title}...`);
+            }
+            if (!hasLoadedGraph) {
+                resetViewer();
+            }
 
             exampleSelect.disabled = true;
             try {
@@ -1208,6 +1442,7 @@
                 console.error('[kg-gen] Failed to load example graph', error);
                 setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
                 exampleStatus.textContent = 'Could not load the selected sample.';
+                hideLoadingInViewer();
             } finally {
                 exampleSelect.disabled = exampleMetadata.size === 0;
             }
@@ -1254,6 +1489,10 @@
         event.preventDefault();
         sourceText.value = '';
         textFileInput.value = '';
+        // Update states after clearing
+        if (window.updateInputStates) {
+            window.updateInputStates();
+        }
         // Note: Cached inputs (api key, model, chunk size, temperature, cluster, context) are preserved
         setStatus('Text inputs cleared. Cached settings preserved.');
     });

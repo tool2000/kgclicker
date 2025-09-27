@@ -13,6 +13,18 @@
 </head>
 
 <body>
+    <!-- Mobile Top Bar -->
+    <div class="mobile-top-bar">
+        <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Toggle navigation menu">
+            <div class="hamburger-icon">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </div>
+        </button>
+        <h1 class="mobile-app-title">Knowledge Graph Explorer</h1>
+    </div>
+
     <div class="layout">
         <main>
             <header>
@@ -60,7 +72,7 @@
                     <div class="field-group">
                         <div>
                             <label for="apiKey">OpenAI API key</label>
-                            <input type="password" id="apiKey" autocomplete="off" placeholder="sk-..." />
+                            <input type="password" id="apiKey" autocomplete="new-password" placeholder="sk-..." />
                         </div>
                         <div class="field-row">
                             <div>
@@ -94,10 +106,12 @@
                             <label for="sourceText">Paste text</label>
                             <textarea id="sourceText"
                                 placeholder="Add any text you would like to convert into a knowledge graph..."></textarea>
+                            <div class="input-hint" id="sourceTextHint">To enter text, clear the file selection first</div>
                         </div>
                         <div>
                             <label for="textFile">Or upload a .txt file</label>
                             <input type="file" id="textFile" accept="text/plain" />
+                            <div class="input-hint" id="textFileHint">To upload a file, clear the text input first</div>
                             <div class="file-note">Files are processed on this machine and never leave your environment.
                             </div>
                         </div>
@@ -144,7 +158,7 @@
         </main>
 
         <section class="viewer-wrapper">
-            <div class="placeholder" id="placeholder">Load or generate a graph to inspect it here.</div>
+            <div class="placeholder" id="placeholder"></div>
             <iframe id="viewer" title="Knowledge Graph Explorer" hidden></iframe>
             <div class="floating-actions" id="floatingActions" hidden>
                 <button class="secondary" id="downloadGraph" type="button">Download graph.json</button>

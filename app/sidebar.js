@@ -3,6 +3,7 @@ class SidebarManager {
         this.isCollapsed = false;
         this.currentMode = 'setup';
         this.lastGraphData = null;
+        this.isMobile = false;
         this.init();
     }
 
@@ -11,6 +12,8 @@ class SidebarManager {
         this.setupEventListeners();
         this.setupIframeMessaging();
         this.setupModeSwitching();
+        this.setupMobileMenu();
+        this.checkMobile();
     }
 
     createToggleButton() {
@@ -36,7 +39,122 @@ class SidebarManager {
             if (e.key === 'Escape' && this.isCollapsed) {
                 this.showSidebar();
             }
+            // On mobile, also close sidebar with escape
+            if (e.key === 'Escape' && this.isMobile) {
+                this.hideMobileSidebar();
+            }
         });
+
+        // Listen for window resize to check mobile state
+        window.addEventListener('resize', () => {
+            this.checkMobile();
+        });
+
+    }
+
+    setupMobileMenu() {
+        const mobileMenuButton = document.getElementById('mobileMenuButton');
+        if (mobileMenuButton) {
+            mobileMenuButton.addEventListener('click', () => {
+                this.toggleMobileSidebar();
+            });
+        }
+    }
+
+    checkMobile() {
+        const wasMobile = this.isMobile;
+        this.isMobile = window.innerWidth <= 768;
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const placeholder = document.getElementById('placeholder');
+
+        console.log('checkMobile called - placeholder found:', !!placeholder, 'isMobile:', this.isMobile);
+
+        // Always update toggle button visibility based on mobile state
+        if (toggleBtn) {
+            if (this.isMobile) {
+                toggleBtn.style.display = 'none';
+            } else {
+                toggleBtn.style.display = 'flex';
+            }
+        }
+
+        // Update placeholder text and add mobile click handler
+        if (placeholder) {
+            if (this.isMobile) {
+                placeholder.textContent = 'Tap here 👆 to pick your graph';
+                document.querySelector('.viewer-wrapper').onclick = () => this.showMobileSidebar();
+            } else {
+                placeholder.textContent = 'Load or generate a graph to inspect it here.';
+                document.querySelector('.viewer-wrapper').onclick = null;
+            }
+        } else {
+            setTimeout(() => this.updatePlaceholderForMobile(), 100);
+        }
+
+        if (wasMobile !== this.isMobile) {
+            // Reset sidebar state when switching between mobile/desktop
+            const main = document.querySelector('main');
+            const mobileMenuButton = document.getElementById('mobileMenuButton');
+
+            if (this.isMobile) {
+                // Entering mobile mode
+                main.classList.remove('mobile-open');
+                if (mobileMenuButton) {
+                    mobileMenuButton.classList.remove('active');
+                }
+            } else {
+                // Entering desktop mode
+                main.classList.remove('mobile-open');
+                if (mobileMenuButton) {
+                    mobileMenuButton.classList.remove('active');
+                }
+                // Restore desktop sidebar state
+                if (this.isCollapsed) {
+                    this.hideSidebar();
+                } else {
+                    this.showSidebar();
+                }
+            }
+        }
+    }
+
+    updatePlaceholderForMobile() {
+        const placeholder = document.getElementById('placeholder');
+        if (placeholder && this.isMobile) {
+            placeholder.textContent = 'Tap here 👆 to pick your graph';
+            document.querySelector('.viewer-wrapper').onclick = () => this.showMobileSidebar();
+        }
+    }
+
+    toggleMobileSidebar() {
+        const main = document.querySelector('main');
+        const mobileMenuButton = document.getElementById('mobileMenuButton');
+
+        if (main.classList.contains('mobile-open')) {
+            this.hideMobileSidebar();
+        } else {
+            this.showMobileSidebar();
+        }
+    }
+
+    showMobileSidebar() {
+        const main = document.querySelector('main');
+        const mobileMenuButton = document.getElementById('mobileMenuButton');
+
+        main.classList.add('mobile-open');
+        if (mobileMenuButton) {
+            mobileMenuButton.classList.add('active');
+        }
+    }
+
+    hideMobileSidebar() {
+        const main = document.querySelector('main');
+        const mobileMenuButton = document.getElementById('mobileMenuButton');
+
+        main.classList.remove('mobile-open');
+        if (mobileMenuButton) {
+            mobileMenuButton.classList.remove('active');
+        }
     }
 
     setupModeSwitching() {
@@ -107,6 +225,11 @@ class SidebarManager {
         // Auto-switch to analysis mode when graph is loaded
         this.switchMode('analysis');
         this.updateAnalysisContent(graphData);
+
+        // Close mobile sidebar when graph is picked on mobile
+        if (this.isMobile) {
+            this.hideMobileSidebar();
+        }
     }
 
     handleSelectionChanged(selection) {
@@ -125,6 +248,12 @@ class SidebarManager {
     }
 
     toggleSidebar() {
+        // On mobile, use mobile sidebar toggle instead
+        if (this.isMobile) {
+            this.toggleMobileSidebar();
+            return;
+        }
+
         if (this.isCollapsed) {
             this.showSidebar();
         } else {
