@@ -752,28 +752,59 @@
             });
         }
 
-        // Make text input and file input mutually exclusive
-        if (textFileInput) {
-            textFileInput.addEventListener('change', () => {
-                if (textFileInput.files && textFileInput.files.length > 0) {
-                    // Clear text input when file is selected
-                    if (sourceText) {
-                        sourceText.value = '';
-                    }
+        // Enhanced mutual exclusion with visual feedback
+        const sourceTextHint = document.getElementById('sourceTextHint');
+        const textFileHint = document.getElementById('textFileHint');
+
+        window.updateInputStates = function updateInputStates() {
+            const hasText = sourceText && sourceText.value.trim();
+            const hasFile = textFileInput && textFileInput.files && textFileInput.files.length > 0;
+            const hasContent = hasText || hasFile;
+
+            // Update input states
+            if (sourceText) {
+                sourceText.disabled = hasFile;
+            }
+            if (textFileInput) {
+                textFileInput.disabled = hasText;
+            }
+
+            // Update hint visibility
+            if (sourceTextHint) {
+                if (hasFile) {
+                    sourceTextHint.classList.add('show');
+                } else {
+                    sourceTextHint.classList.remove('show');
                 }
-            });
+            }
+            if (textFileHint) {
+                if (hasText) {
+                    textFileHint.classList.add('show');
+                } else {
+                    textFileHint.classList.remove('show');
+                }
+            }
+
+            // Update clear button style
+            if (clearTextButton) {
+                if (hasContent) {
+                    clearTextButton.classList.add('active');
+                } else {
+                    clearTextButton.classList.remove('active');
+                }
+            }
+        }
+
+        if (textFileInput) {
+            textFileInput.addEventListener('change', updateInputStates);
         }
 
         if (sourceText) {
-            sourceText.addEventListener('input', () => {
-                if (sourceText.value.trim()) {
-                    // Clear file input when text is entered
-                    if (textFileInput) {
-                        textFileInput.value = '';
-                    }
-                }
-            });
+            sourceText.addEventListener('input', updateInputStates);
         }
+
+        // Initial state
+        updateInputStates();
     }
 
     const modelDefaultTemperature = new Map([
@@ -1357,6 +1388,10 @@
         event.preventDefault();
         sourceText.value = '';
         textFileInput.value = '';
+        // Update states after clearing
+        if (window.updateInputStates) {
+            window.updateInputStates();
+        }
         // Note: Cached inputs (api key, model, chunk size, temperature, cluster, context) are preserved
         setStatus('Text inputs cleared. Cached settings preserved.');
     });

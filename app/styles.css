@@ -102,6 +102,19 @@
             font-family: inherit;
             color: #0f172a;
             background: #ffffff;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:disabled,
+        input[type="password"]:disabled,
+        input[type="number"]:disabled,
+        input[type="file"]:disabled,
+        select:disabled,
+        textarea:disabled {
+            background: #f1f5f9;
+            color: #94a3b8;
+            border-color: #e2e8f0;
+            cursor: not-allowed;
         }
 
         textarea {
@@ -271,6 +284,27 @@
         .file-note {
             font-size: 0.8rem;
             color: #64748b;
+        }
+
+        .input-hint {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .input-hint.show {
+            display: block;
+        }
+
+        .secondary.active {
+            background: #16a34a;
+            color: #ffffff;
+        }
+
+        .secondary.active:hover {
+            background: #15803d;
+            transform: translateY(-1px);
         }
 
 
