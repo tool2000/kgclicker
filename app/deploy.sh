@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GCP_PROJECT_ID=kggen-ai
-CLOUD_RUN_SERVICE=app
-CLOUD_RUN_REGION=us-central1
-ARTIFACT_REGISTRY_REPO=app
+GCP_PROJECT_ID=${GCP_PROJECT_ID:-kggen-ai}
+CLOUD_RUN_SERVICE=${CLOUD_RUN_SERVICE:-app}
+CLOUD_RUN_REGION=${CLOUD_RUN_REGION:-us-central1}
+ARTIFACT_REGISTRY_REPO=${ARTIFACT_REGISTRY_REPO:-app}
 IMAGE_NAME=${IMAGE_NAME:-cloud-run-app}
 IMAGE_TAG=${IMAGE_TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%s)}
 ARTIFACT_REGISTRY_LOCATION=${ARTIFACT_REGISTRY_LOCATION:-$CLOUD_RUN_REGION}
@@ -15,16 +15,20 @@ printf "[deploy] Building and pushing image %s\n" "$IMAGE_URI"
 # Change to project root for build context
 cd "$(dirname "$0")/.."
 
-rm -f Dockerfile .dockerignore
+# Create a Cloud Build config file that specifies the Dockerfile location
+cat > cloudbuild.yaml <<EOF
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', '${IMAGE_URI}', '-f', 'app/Dockerfile', '.']
+images:
+  - '${IMAGE_URI}'
+EOF
 
-cp -L app/Dockerfile Dockerfile
-if [[ -f app/.dockerignore ]]; then
-  cp -L app/.dockerignore .dockerignore
-fi
+# Submit the build using the config file
+gcloud builds submit --config=cloudbuild.yaml --project "$GCP_PROJECT_ID" .
 
-gcloud builds submit --tag "$IMAGE_URI" --project "$GCP_PROJECT_ID" .
-
-rm -f Dockerfile .dockerignore
+# Clean up
+rm -f cloudbuild.yaml
 
 deploy_args=(
   --image "$IMAGE_URI"
