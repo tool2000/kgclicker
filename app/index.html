@@ -13,6 +13,18 @@
 </head>
 
 <body>
+    <!-- Mobile Top Bar -->
+    <div class="mobile-top-bar">
+        <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Toggle navigation menu">
+            <div class="hamburger-icon">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </div>
+        </button>
+        <h1 class="mobile-app-title">Knowledge Graph Explorer</h1>
+    </div>
+
     <div class="layout">
         <main>
             <header>
@@ -146,7 +158,7 @@
         </main>
 
         <section class="viewer-wrapper">
-            <div class="placeholder" id="placeholder">Load or generate a graph to inspect it here.</div>
+            <div class="placeholder" id="placeholder"></div>
             <iframe id="viewer" title="Knowledge Graph Explorer" hidden></iframe>
             <div class="floating-actions" id="floatingActions" hidden>
                 <button class="secondary" id="downloadGraph" type="button">Download graph.json</button>

@@ -870,20 +870,67 @@
     }
 
     function showLoadingInViewer(title, message) {
-        if (viewer.contentWindow) {
+        // If we have a loaded iframe, show loading there
+        if (viewer.contentWindow && !viewer.hasAttribute('hidden')) {
             viewer.contentWindow.postMessage({
                 type: 'showLoading',
                 title: title,
                 message: message
             }, '*');
+        } else {
+            // Otherwise, show loading in the placeholder area
+            showLoadingInPlaceholder(title, message);
         }
     }
 
     function hideLoadingInViewer() {
-        if (viewer.contentWindow) {
+        // Hide loading from iframe if present
+        if (viewer.contentWindow && !viewer.hasAttribute('hidden')) {
             viewer.contentWindow.postMessage({
                 type: 'hideLoading'
             }, '*');
+        }
+        // Always hide placeholder loading
+        hideLoadingInPlaceholder();
+    }
+
+    function showLoadingInPlaceholder(title, message) {
+        const loadingHtml = `
+            <div class="loading-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;">
+                <div class="loading-card" style="background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); text-align: center; max-width: 300px; width: 100%;">
+                    <div class="loading-spinner" style="width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                    <h3 style="margin: 0 0 0.5rem; font-size: 1.125rem; font-weight: 600; color: #111827; word-break: break-word;">${title}</h3>
+                    <p style="margin: 0; color: #6b7280; font-size: 0.875rem; word-break: break-word;">${message}</p>
+                </div>
+            </div>
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                @media (max-width: 768px) {
+                    .loading-card {
+                        padding: 1.5rem !important;
+                        max-width: 280px !important;
+                    }
+                    .loading-overlay {
+                        top: 60px !important; /* Account for mobile top bar */
+                    }
+                }
+            </style>
+        `;
+        placeholder.innerHTML = loadingHtml;
+        placeholder.removeAttribute('hidden');
+        placeholder.style.display = 'flex';
+        placeholder.style.position = 'relative';
+        placeholder.style.minHeight = '100%';
+    }
+
+    function hideLoadingInPlaceholder() {
+        placeholder.innerHTML = '';
+        if (!hasLoadedGraph) {
+            placeholder.setAttribute('hidden', 'hidden');
+            placeholder.style.display = 'flex';
         }
     }
 
@@ -1032,6 +1079,7 @@
 
     async function renderView(viewModel, graphForDownload) {
         console.info('[kg-gen] Rendering view model');
+        showLoadingInViewer('Rendering Graph', 'Building visualization...');
         await loadTemplate();
         const html = templateHtml.replace('<!--DATA-->', `\n${sanitizeJson(viewModel)}\n`);
         if (activeUrl) {
@@ -1154,7 +1202,14 @@
         setStatus(`Reading ${file.name}...`);
         console.info('[kg-gen] Reading uploaded graph file', file.name);
 
-        if (hasLoadedGraph) {
+        // Hide mobile sidebar and show loading with proper timing
+        if (window.sidebarManager && window.sidebarManager.isMobile) {
+            window.sidebarManager.hideMobileSidebar();
+            // Give sidebar animation time to complete before showing loading
+            setTimeout(() => {
+                showLoadingInViewer('Loading Graph', `Reading ${file.name}...`);
+            }, 150);
+        } else {
             showLoadingInViewer('Loading Graph', `Reading ${file.name}...`);
         }
 
@@ -1223,9 +1278,8 @@
             hasFile: Boolean(textFile)
         });
 
-        if (hasLoadedGraph) {
-            showLoadingInViewer('Generating Graph', 'Running KGGen on your text. This may take a few minutes...');
-        } else {
+        showLoadingInViewer('Generating Graph', 'Running KGGen on your text. This may take a few minutes...');
+        if (!hasLoadedGraph) {
             resetViewer();
         }
 
@@ -1311,9 +1365,17 @@
             exampleStatus.textContent = `Loading ${title}...`;
             setStatus(`Loading example graph: ${title}...`);
 
-            if (hasLoadedGraph) {
-                showLoadingInViewer('Loading Example', `Loading ${title}...`);
+            // Hide mobile sidebar and show loading with proper timing
+            if (window.sidebarManager && window.sidebarManager.isMobile) {
+                window.sidebarManager.hideMobileSidebar();
+                // Give sidebar animation time to complete before showing loading
+                setTimeout(() => {
+                    showLoadingInViewer('Loading Example', `Loading ${title}...`);
+                }, 150);
             } else {
+                showLoadingInViewer('Loading Example', `Loading ${title}...`);
+            }
+            if (!hasLoadedGraph) {
                 resetViewer();
             }
 
