@@ -135,4 +135,4 @@ jobs:
             echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "⚠️ This is a TEST deployment. Remember to clean up test resources when done!" >> $GITHUB_STEP_SUMMARY
-          f
+          fi
