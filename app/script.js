@@ -161,6 +161,10 @@
         return result;
     }
 
+    function setStatus(message, type = 'info') {
+        // no operation per now
+    }
+
     function sanitizeGraphForBackend(rawGraph) {
         if (!rawGraph || typeof rawGraph !== 'object') {
             return rawGraph;
@@ -594,7 +598,6 @@
         };
     }
 
-    const statusBox = document.getElementById('status');
     const viewer = document.getElementById('viewer');
     const placeholder = document.getElementById('placeholder');
     const floatingActions = document.getElementById('floatingActions');
@@ -792,13 +795,6 @@
     let lastGraphPayload = null;
     let lastViewModel = null;
 
-    function setStatus(message, variant) {
-        statusBox.textContent = message;
-        statusBox.classList.toggle('error', variant === 'error');
-        statusBox.classList.toggle('success', variant === 'success');
-        console[variant === 'error' ? 'error' : variant === 'success' ? 'info' : 'log']('[kg-gen]', message);
-    }
-
     function resetViewer() {
         if (activeUrl) {
             URL.revokeObjectURL(activeUrl);
@@ -962,6 +958,13 @@
         setStatus(extractSummary(viewModel), 'success');
         refreshCallbacks.length = 0;
         refreshCallbacks.push(() => renderView(lastViewModel, lastGraphPayload));
+
+        // Notify sidebar manager about the new graph data
+        if (window.sidebarManager) {
+            setTimeout(() => {
+                window.sidebarManager.handleGraphDataReady(viewModel);
+            }, 500); // Small delay to ensure iframe is ready
+        }
     }
 
     function readFile(file) {

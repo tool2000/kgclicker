@@ -35,12 +35,17 @@
             grid-template-columns: 0px 1fr;
         }
 
+        .layout.sidebar-disabled {
+            grid-template-columns: 1fr;
+        }
+
         .sidebar {
             background: #ffffff;
             border-right: 1px solid #e2e8f0;
             padding: 24px 24px 16px;
             overflow-y: auto;
             transition: width 0.3s ease, opacity 0.3s ease;
+            display: none; /* Hidden by default - controlled by main app */
         }
 
         .sidebar.collapsed {
@@ -197,6 +202,7 @@
             transition: all 0.2s ease;
             z-index: 10;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: none; /* Hidden when sidebar is disabled */
         }
 
         .sidebar-toggle:hover {
@@ -455,7 +461,8 @@
                 focusCluster: null,
                 focusPredicate: null,
                 searchTerm: '',
-                sidebarCollapsed: false
+                sidebarCollapsed: false,
+                sidebarDisabled: false
             };
 
             const nodeById = Object.fromEntries(vizData.nodes.map(node => [node.id, node]));
@@ -614,6 +621,44 @@
                 state.activeElement = element;
                 renderSelectionDetails();
                 updateHighlights();
+
+                // Notify parent about selection change
+                if (window.parent !== window && state.sidebarDisabled) {
+                    const selection = element ? {
+                        type: element.type,
+                        id: element.id,
+                        ...getElementDetails(element)
+                    } : null;
+                    window.parent.postMessage({
+                        type: 'selectionChanged',
+                        selection: selection
+                    }, '*');
+                }
+            }
+
+            function getElementDetails(element) {
+                if (!element) return {};
+
+                if (element.type === 'node') {
+                    const node = nodeById[element.id];
+                    return {
+                        label: node.label,
+                        cluster: node.cluster,
+                        degree: node.degree,
+                        indegree: node.indegree,
+                        outdegree: node.outdegree,
+                        neighbors: node.neighbors
+                    };
+                } else if (element.type === 'edge') {
+                    const edge = edgeById[element.id];
+                    return {
+                        source: edge.source,
+                        target: edge.target,
+                        predicate: edge.predicate,
+                        cluster: edge.cluster
+                    };
+                }
+                return {};
             }
 
             function clearActiveElement() {
@@ -928,6 +973,8 @@
             }
 
             function toggleSidebar() {
+                if (state.sidebarDisabled) return;
+
                 state.sidebarCollapsed = !state.sidebarCollapsed;
                 const layout = document.querySelector('.layout');
                 const sidebar = document.querySelector('.sidebar');
@@ -948,6 +995,25 @@
                         }
                     }
                 }, 300); // Wait for transition to complete
+            }
+
+            function disableSidebar() {
+                state.sidebarDisabled = true;
+                const layout = document.querySelector('.layout');
+                const sidebar = document.querySelector('.sidebar');
+                const toggleButton = document.getElementById('sidebarToggle');
+
+                layout.classList.add('sidebar-disabled');
+                sidebar.style.display = 'none';
+                toggleButton.style.display = 'none';
+
+                // Notify parent about graph data
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'graphDataReady',
+                        data: vizData
+                    }, '*');
+                }
             }
 
             function bindInteractions() {
@@ -974,6 +1040,14 @@
                 searchInput.addEventListener('input', () => {
                     state.searchTerm = searchInput.value.trim();
                     updateHighlights();
+
+                    // Notify parent about search change
+                    if (window.parent !== window && state.sidebarDisabled) {
+                        window.parent.postMessage({
+                            type: 'searchChanged',
+                            searchTerm: state.searchTerm
+                        }, '*');
+                    }
                 });
                 searchInput.addEventListener('keydown', event => {
                     if (event.key === 'Escape') {
@@ -996,6 +1070,21 @@
                 });
 
                 document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+
+                // Listen for messages from parent
+                window.addEventListener('message', (event) => {
+                    if (event.data.type === 'disableInternalSidebar') {
+                        disableSidebar();
+                    } else if (event.data.type === 'search') {
+                        const searchTerm = event.data.term || '';
+                        state.searchTerm = searchTerm;
+                        updateHighlights();
+                    } else if (event.data.type === 'focusCluster') {
+                        toggleClusterFocus(event.data.clusterId);
+                    } else if (event.data.type === 'focusPredicate') {
+                        togglePredicateFocus(event.data.predicate);
+                    }
+                });
             }
 
             renderStats();
