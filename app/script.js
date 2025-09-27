@@ -750,6 +750,29 @@
                 saveCachedInput(CACHE_KEYS.context, contextInput.value);
             });
         }
+
+        // Make text input and file input mutually exclusive
+        if (textFileInput) {
+            textFileInput.addEventListener('change', () => {
+                if (textFileInput.files && textFileInput.files.length > 0) {
+                    // Clear text input when file is selected
+                    if (sourceText) {
+                        sourceText.value = '';
+                    }
+                }
+            });
+        }
+
+        if (sourceText) {
+            sourceText.addEventListener('input', () => {
+                if (sourceText.value.trim()) {
+                    // Clear file input when text is entered
+                    if (textFileInput) {
+                        textFileInput.value = '';
+                    }
+                }
+            });
+        }
     }
 
     const modelDefaultTemperature = new Map([
@@ -794,6 +817,8 @@
     let activeUrl = null;
     let lastGraphPayload = null;
     let lastViewModel = null;
+    let isGenerating = false;
+    let hasLoadedGraph = false;
 
     function resetViewer() {
         if (activeUrl) {
@@ -806,6 +831,35 @@
         placeholder.style.display = 'flex';
         floatingActions.setAttribute('hidden', 'hidden');
         refreshCallbacks.length = 0;
+        hasLoadedGraph = false;
+    }
+
+    function showLoadingInViewer(title, message) {
+        if (viewer.contentWindow) {
+            viewer.contentWindow.postMessage({
+                type: 'showLoading',
+                title: title,
+                message: message
+            }, '*');
+        }
+    }
+
+    function hideLoadingInViewer() {
+        if (viewer.contentWindow) {
+            viewer.contentWindow.postMessage({
+                type: 'hideLoading'
+            }, '*');
+        }
+    }
+
+    function confirmGraphReplacement(action) {
+        if (!hasLoadedGraph || !isGenerating) {
+            return true;
+        }
+        return confirm(
+            'A graph is currently loaded. Proceeding will replace it.\n\n' +
+            'Continue with ' + action + '?'
+        );
     }
 
     function prepareDownload(graphJson) {
@@ -958,6 +1012,8 @@
         setStatus(extractSummary(viewModel), 'success');
         refreshCallbacks.length = 0;
         refreshCallbacks.push(() => renderView(lastViewModel, lastGraphPayload));
+        hasLoadedGraph = true;
+        hideLoadingInViewer();
 
         // Notify sidebar manager about the new graph data
         if (window.sidebarManager) {
@@ -1052,8 +1108,18 @@
         if (!file) {
             return;
         }
+
+        if (!confirmGraphReplacement('file upload')) {
+            return;
+        }
+
         setStatus(`Reading ${file.name}...`);
         console.info('[kg-gen] Reading uploaded graph file', file.name);
+
+        if (hasLoadedGraph) {
+            showLoadingInViewer('Loading Graph', `Reading ${file.name}...`);
+        }
+
         try {
             const contents = await readFile(file);
             const json = JSON.parse(contents);
@@ -1061,6 +1127,7 @@
         } catch (error) {
             console.error(error);
             setStatus(`Could not load graph: ${error.message}`, 'error');
+            hideLoadingInViewer();
             resetViewer();
         }
     }
@@ -1081,6 +1148,14 @@
             setStatus('Provide some text or upload a .txt file.', 'error');
             return;
         }
+
+        if (!confirmGraphReplacement('graph generation')) {
+            return;
+        }
+
+        isGenerating = true;
+        generateButton.disabled = true;
+        generateButton.textContent = 'Generating...';
 
         const formData = new FormData();
         formData.append('api_key', apiKey);
@@ -1109,7 +1184,12 @@
             hasText: Boolean(pastedText),
             hasFile: Boolean(textFile)
         });
-        resetViewer();
+
+        if (hasLoadedGraph) {
+            showLoadingInViewer('Generating Graph', 'Running KGGen on your text. This may take a few minutes...');
+        } else {
+            resetViewer();
+        }
 
         try {
             const response = await fetch('/api/generate', {
@@ -1145,6 +1225,11 @@
         } catch (error) {
             console.error(error);
             setStatus(`Generation failed: ${error.message}`, 'error');
+            hideLoadingInViewer();
+        } finally {
+            isGenerating = false;
+            generateButton.disabled = false;
+            generateButton.textContent = 'Generate graph';
         }
     }
 
@@ -1177,12 +1262,22 @@
                 return;
             }
 
+            if (!confirmGraphReplacement('example loading')) {
+                exampleSelect.value = '';
+                return;
+            }
+
             const meta = exampleMetadata.get(slug) || null;
             updateExampleLink(meta);
             const title = meta?.title || slug;
             exampleStatus.textContent = `Loading ${title}...`;
             setStatus(`Loading example graph: ${title}...`);
-            resetViewer();
+
+            if (hasLoadedGraph) {
+                showLoadingInViewer('Loading Example', `Loading ${title}...`);
+            } else {
+                resetViewer();
+            }
 
             exampleSelect.disabled = true;
             try {
@@ -1208,6 +1303,7 @@
                 console.error('[kg-gen] Failed to load example graph', error);
                 setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
                 exampleStatus.textContent = 'Could not load the selected sample.';
+                hideLoadingInViewer();
             } finally {
                 exampleSelect.disabled = exampleMetadata.size === 0;
             }
