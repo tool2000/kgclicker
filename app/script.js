@@ -629,7 +629,11 @@
         chunkSizeInput: !!chunkSizeInput,
         temperatureInput: !!temperatureInput,
         clusterToggle: !!clusterToggle,
-        contextInput: !!contextInput
+        contextInput: !!contextInput,
+        viewer: !!viewer,
+        placeholder: !!placeholder,
+        viewerWrapper: !!viewerWrapper,
+        floatingActions: !!floatingActions
     });
 
     const refreshCallbacks = [];
@@ -1106,6 +1110,7 @@
             // Auto-select and load the first example
             if (items.length > 0) {
                 const firstExample = items[0];
+                console.log('[kg-gen] Auto-loading first example:', firstExample);
                 exampleSelect.value = firstExample.slug;
 
                 // Automatically load the first example
@@ -1251,6 +1256,7 @@
     }
 
     async function handleGraphData(rawJson) {
+        console.log('[kg-gen] handleGraphData called with:', rawJson);
         if (!rawJson) {
             throw new Error('Empty JSON payload');
         }
