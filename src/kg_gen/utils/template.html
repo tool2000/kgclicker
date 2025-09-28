@@ -63,6 +63,12 @@
             max-width: none !important;
         }
 
+        /* Force canvas to take full iframe space */
+        canvas#networkCanvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
         .sidebar {
             background: #ffffff;
             border-right: 1px solid #e2e8f0;
@@ -363,19 +369,54 @@
         }
 
 
-        @media (max-width: 1100px) {
-            .layout {
+        /* Mobile/narrow iframe handling - when sidebar is disabled, use full space */
+        @media (max-width: 800px) {
+            .layout:not(.sidebar-disabled) {
                 grid-template-columns: 1fr;
             }
 
-            .sidebar {
-                height: 320px;
+            .layout:not(.sidebar-disabled) .sidebar {
+                height: 280px;
                 border-right: none;
                 border-bottom: 1px solid #e2e8f0;
             }
 
-            .main {
-                height: calc(100vh - 320px);
+            .layout:not(.sidebar-disabled) .main {
+                height: calc(100vh - 280px);
+            }
+
+            /* When sidebar is disabled (iframe mode), ensure full viewport usage */
+            .layout.sidebar-disabled .main {
+                width: 100% !important;
+                height: 100vh !important;
+            }
+
+            .layout.sidebar-disabled .tab-panel {
+                padding: 0 !important;
+                width: 100% !important;
+                height: 100vh !important;
+            }
+
+            .layout.sidebar-disabled .network-panel {
+                width: 100% !important;
+                height: 100vh !important;
+                border-radius: 0 !important;
+                border: none !important;
+                max-width: none !important;
+            }
+
+            .layout.sidebar-disabled #networkCanvas {
+                width: 100% !important;
+                height: 100vh !important;
+                max-width: none !important;
+            }
+
+            /* Ensure iframe canvas takes full space on mobile */
+            canvas#networkCanvas {
+                width: 100% !important;
+                height: 100% !important;
+                min-width: 100% !important;
+                min-height: 100% !important;
             }
         }
     </style>
@@ -414,7 +455,7 @@
         </aside>
         <main class="main">
             <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar"></button>
-            <div class="tab-bar" style="padding-bottom: 10px;">
+            <div class="tab-bar" style="padding-bottom: 10px; display: none;">
                 <button class="tab active" data-tab="network">Network</button>
                 <!-- <button class="tab" data-tab="relations">Relations</button>
                 <button class="tab" data-tab="insights">Insights</button> -->
@@ -451,8 +492,23 @@
     </script>
     <script>
         (function () {
+            console.log('[iframe] Script starting - mobile check:', window.innerWidth <= 768);
+            console.log('[iframe] User agent:', navigator.userAgent);
+
             const dataElement = document.getElementById('viz-data');
-            const vizData = JSON.parse(dataElement.textContent);
+            if (!dataElement) {
+                console.error('[iframe] viz-data element not found!');
+                return;
+            }
+
+            let vizData;
+            try {
+                vizData = JSON.parse(dataElement.textContent);
+                console.log('[iframe] Data parsed successfully:', vizData.nodes?.length, 'nodes');
+            } catch (e) {
+                console.error('[iframe] Failed to parse data:', e);
+                return;
+            }
 
             const state = {
                 activeElement: null,
@@ -739,21 +795,43 @@
             let isFiltering = false;
 
             function createNetwork() {
-                canvas = document.getElementById('networkCanvas');
-                ctx = canvas.getContext('2d');
+                console.log('[iframe] createNetwork starting...');
 
+                if (typeof d3 === 'undefined') {
+                    console.error('[iframe] D3.js not loaded!');
+                    return;
+                }
+                console.log('[iframe] D3.js version:', d3.version);
+
+                canvas = document.getElementById('networkCanvas');
+                if (!canvas) {
+                    console.error('[iframe] Canvas element not found!');
+                    return;
+                }
+
+                ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.error('[iframe] Canvas context not available!');
+                    return;
+                }
+
+                // Force a layout recalculation to ensure proper sizing
+                canvas.offsetHeight; // Trigger reflow
 
                 // Set canvas size with device pixel ratio for crisp rendering
                 const rect = canvas.getBoundingClientRect();
-                const dpr = window.devicePixelRatio || 1;
-                canvas.width = rect.width * dpr;
-                canvas.height = rect.height * dpr;
-                ctx.scale(dpr, dpr);
-                canvas.style.width = rect.width + 'px';
-                canvas.style.height = rect.height + 'px';
+                console.log('[iframe] Canvas rect:', rect.width, 'x', rect.height);
 
-                const width = rect.width;
-                const height = rect.height;
+                // Ensure minimum size for mobile/narrow viewports
+                const width = Math.max(rect.width, 320);
+                const height = Math.max(rect.height, 200);
+
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
 
                 // Initialize transform for zooming/panning
                 transform = d3.zoomIdentity;
@@ -895,19 +973,29 @@
             function resizeCanvas() {
                 if (!canvas || !ctx) return;
 
+                // Force canvas to take full container size
+                if (state.sidebarDisabled) {
+                    canvas.style.width = '100%';
+                    canvas.style.height = '100%';
+                }
+
                 const rect = canvas.getBoundingClientRect();
                 console.log('Canvas resize - rect:', rect.width, 'x', rect.height);
 
+                // Ensure minimum size for mobile
+                const width = Math.max(rect.width, 320);
+                const height = Math.max(rect.height, 200);
+
                 const dpr = window.devicePixelRatio || 1;
-                canvas.width = rect.width * dpr;
-                canvas.height = rect.height * dpr;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
                 ctx.scale(dpr, dpr);
-                canvas.style.width = rect.width + 'px';
-                canvas.style.height = rect.height + 'px';
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
 
                 // Update simulation center
                 if (simulation) {
-                    simulation.force('center', d3.forceCenter(rect.width / 2, rect.height / 2));
+                    simulation.force('center', d3.forceCenter(width / 2, height / 2));
                     simulation.alpha(0.3).restart();
                 }
 
@@ -1131,32 +1219,34 @@
                 sidebar.style.display = 'none';
                 toggleButton.style.display = 'none';
 
-                // Force styles directly as well
-                main.style.width = '100vw';
+                // Force styles directly for iframe context
+                main.style.width = '100%';
+                main.style.height = '100vh';
                 tabPanel.style.padding = '0';
-                tabPanel.style.width = '100vw';
-                networkPanel.style.width = '100vw';
+                tabPanel.style.width = '100%';
+                tabPanel.style.height = '100vh';
+                networkPanel.style.width = '100%';
                 networkPanel.style.height = '100vh';
-                canvas.style.width = '100vw';
-                canvas.style.height = '100vh';
+                networkPanel.style.borderRadius = '0';
+                networkPanel.style.border = 'none';
 
                 console.log('Sidebar disabled, forcing full width styles');
 
-                // First resize attempt
+                // Multiple resize attempts with forced reflow
                 setTimeout(() => {
                     canvas.offsetHeight; // Trigger reflow
                     console.log('First resize attempt after 200ms');
                     resizeCanvas();
                 }, 200);
 
-                // Second resize attempt
                 setTimeout(() => {
+                    canvas.offsetHeight; // Trigger reflow
                     console.log('Second resize attempt after 500ms');
                     resizeCanvas();
                 }, 500);
 
-                // Final resize attempt
                 setTimeout(() => {
+                    canvas.offsetHeight; // Trigger reflow
                     console.log('Final resize attempt after 800ms');
                     resizeCanvas();
                 }, 800);
@@ -1246,8 +1336,12 @@
             renderClusters();
             // renderRelationsTable();
             // renderInsights();
-            createNetwork();
-            bindInteractions();
+
+            // Delay network creation to ensure proper layout
+            setTimeout(() => {
+                createNetwork();
+                bindInteractions();
+            }, 100);
         })();
     </script>
 </body>
