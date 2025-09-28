@@ -112,7 +112,8 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
-            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+            border-right: 1px solid rgba(15, 23, 42, 0.06);
             transition: transform 0.3s ease;
             overflow-y: auto;
             height: 100%;
@@ -133,13 +134,14 @@
         }
 
         .card {
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(15, 23, 42, 0.08);
             border-radius: 16px;
             padding: 20px 18px 24px;
             display: flex;
             flex-direction: column;
             gap: 16px;
-            background: #f8fafc;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
         }
 
         .card h2 {
@@ -323,7 +325,6 @@
             height: 100%;
             border: none;
             border-radius: 18px;
-            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
             background: #ffffff;
             flex: 1 1 auto;
         }
