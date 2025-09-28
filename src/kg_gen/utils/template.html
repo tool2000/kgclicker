@@ -37,6 +37,30 @@
 
         .layout.sidebar-disabled {
             grid-template-columns: 1fr;
+            width: 100%;
+        }
+
+        .layout.sidebar-disabled .main {
+            width: 100vw !important;
+        }
+
+        .layout.sidebar-disabled .tab-panel {
+            padding: 0 !important;
+            width: 100vw !important;
+        }
+
+        .layout.sidebar-disabled .network-panel {
+            width: 100vw !important;
+            height: 100vh !important;
+            border-radius: 0;
+            border: none;
+            max-width: none !important;
+        }
+
+        .layout.sidebar-disabled #networkCanvas {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: none !important;
         }
 
         .sidebar {
@@ -163,6 +187,7 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            width: 100%;
         }
 
         .tab-bar {
@@ -241,45 +266,16 @@
         #networkCanvas {
             width: 100%;
             height: 100%;
+            background: #ffffff;
+            border-radius: 16px;
         }
 
-        svg {
-            width: 100%;
-            height: 100%;
+        #networkCanvas {
+            cursor: grab;
         }
 
-        .node circle {
-            stroke: #0f172a;
-            stroke-width: 1.2px;
-            transition: stroke-width 0.2s ease, opacity 0.2s ease;
-        }
-
-        .node text {
-            font-size: 0.75rem;
-            text-anchor: middle;
-            fill: #0f172a;
-            pointer-events: none;
-        }
-
-        .link {
-            fill: none;
-            stroke-opacity: 0.55;
-            transition: stroke-opacity 0.2s ease;
-        }
-
-        .edge-label {
-            font-size: 0.7rem;
-            fill: #1e293b;
-            background: rgba(255, 255, 255, 0.75);
-            pointer-events: none;
-        }
-
-        .dimmed {
-            opacity: 0.15 !important;
-        }
-
-        .highlight {
-            opacity: 1 !important;
+        #networkCanvas:active {
+            cursor: grabbing;
         }
 
         .selection-card {
@@ -479,7 +475,7 @@
             </div>
             <section id="network" class="tab-panel active">
                 <div class="network-panel">
-                    <div id="networkCanvas"></div>
+                    <canvas id="networkCanvas"></canvas>
                 </div>
             </section>
             <!-- <section id="relations" class="tab-panel">
@@ -789,164 +785,319 @@
                 });
             }
 
-            let nodeSelection = null;
-            let linkSelection = null;
-            let labelSelection = null;
+            // Canvas-based network visualization
+            let canvas, ctx, transform, simulation;
+            let nodes, edges;
+            let highlightedNodes = new Set();
+            let highlightedEdges = new Set();
+            let isFiltering = false;
 
             function createNetwork() {
-                const container = document.getElementById('networkCanvas');
-                const width = container.clientWidth || container.getBoundingClientRect().width ;
-                const height = container.clientHeight || container.getBoundingClientRect().height ;
+                canvas = document.getElementById('networkCanvas');
+                ctx = canvas.getContext('2d');
 
-                const nodes = vizData.nodes.map(node => ({ ...node }));
-                const edges = vizData.edges.map(edge => ({ ...edge }));
+                // Show loading if this is the initial creation
+                if (!state.sidebarDisabled) {
+                    const overlay = document.getElementById('loadingOverlay');
+                    const titleEl = document.getElementById('loadingTitle');
+                    const messageEl = document.getElementById('loadingMessage');
 
-                const svg = d3
-                    .select(container)
-                    .append('svg')
-                    .attr('viewBox', [0, 0, width, height])
-                    .attr('width', width)
-                    .attr('height', height);
+                    if (titleEl) titleEl.textContent = 'Loading Graph...';
+                    if (messageEl) messageEl.textContent = 'Initializing the knowledge graph visualization.';
+                    if (overlay) overlay.style.display = 'flex';
+                }
 
-                const zoomLayer = svg.append('g');
+                // Set canvas size with device pixel ratio for crisp rendering
+                const rect = canvas.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                ctx.scale(dpr, dpr);
+                canvas.style.width = rect.width + 'px';
+                canvas.style.height = rect.height + 'px';
 
-                svg.call(
-                    d3
-                        .zoom()
-                        .extent([[0, 0], [width, height]])
-                        .scaleExtent([0.25, 3])
-                        .on('zoom', event => {
-                            zoomLayer.attr('transform', event.transform);
-                        })
-                );
+                const width = rect.width;
+                const height = rect.height;
 
-                const defs = svg.append('defs');
-                defs
-                    .append('marker')
-                    .attr('id', 'arrow')
-                    .attr('viewBox', '0 -5 10 10')
-                    .attr('refX', 24)
-                    .attr('refY', 0)
-                    .attr('markerWidth', 6)
-                    .attr('markerHeight', 6)
-                    .attr('orient', 'auto')
-                    .append('path')
-                    .attr('d', 'M0,-5L10,0L0,5')
-                    .attr('fill', '#94a3b8');
+                // Initialize transform for zooming/panning
+                transform = d3.zoomIdentity;
 
-                const linkGroup = zoomLayer.append('g').attr('class', 'links');
-                const nodeGroup = zoomLayer.append('g').attr('class', 'nodes');
-                const labelGroup = zoomLayer.append('g').attr('class', 'edge-labels');
+                // Clone data for simulation
+                nodes = vizData.nodes.map(node => ({ ...node }));
+                edges = vizData.edges.map(edge => ({ ...edge }));
 
-                const simulation = d3
+                // Create D3 force simulation
+                simulation = d3
                     .forceSimulation(nodes)
-                    .force(
-                        'link',
-                        d3
-                            .forceLink(edges)
-                            .id(d => d.id)
-                            .distance(120)
-                            .strength(0.3)
-                    )
+                    .force('link', d3.forceLink(edges).id(d => d.id).distance(120).strength(0.3))
                     .force('charge', d3.forceManyBody().strength(-280))
                     .force('center', d3.forceCenter(width / 2, height / 2))
                     .force('collision', d3.forceCollide().radius(d => d.radius + 12));
 
-                const drag = d3
-                    .drag()
-                    .on('start', (event, d) => {
-                        if (!event.active) simulation.alphaTarget(0.3).restart();
-                        d.fx = d.x;
-                        d.fy = d.y;
-                    })
-                    .on('drag', (event, d) => {
-                        d.fx = event.x;
-                        d.fy = event.y;
-                    })
-                    .on('end', (event, d) => {
-                        if (!event.active) simulation.alphaTarget(0);
-                        d.fx = null;
-                        d.fy = null;
+                // Set up zoom behavior
+                const zoom = d3.zoom()
+                    .scaleExtent([0.25, 3])
+                    .on('zoom', (event) => {
+                        transform = event.transform;
+                        render();
                     });
 
-                linkSelection = linkGroup
-                    .selectAll('path')
-                    .data(edges, edge => edge.id)
-                    .join('path')
-                    .attr('class', 'link')
-                    .attr('stroke', edge => edge.color)
-                    .attr('stroke-width', 1.4)
-                    .attr('marker-end', 'url(#arrow)')
-                    .on('click', (event, edge) => {
-                        event.stopPropagation();
+                d3.select(canvas).call(zoom);
+
+                // Mouse interaction handling
+                let draggedNode = null;
+                let mouseX, mouseY;
+
+                function getMousePos(event) {
+                    const rect = canvas.getBoundingClientRect();
+                    return {
+                        x: (event.clientX - rect.left - transform.x) / transform.k,
+                        y: (event.clientY - rect.top - transform.y) / transform.k
+                    };
+                }
+
+                function findNode(x, y) {
+                    for (let i = nodes.length - 1; i >= 0; i--) {
+                        const node = nodes[i];
+                        const dx = x - node.x;
+                        const dy = y - node.y;
+                        if (dx * dx + dy * dy < node.radius * node.radius) {
+                            return node;
+                        }
+                    }
+                    return null;
+                }
+
+                function findEdge(x, y) {
+                    for (let i = edges.length - 1; i >= 0; i--) {
+                        const edge = edges[i];
+                        if (!edge.source || !edge.target) continue;
+
+                        // Check if click is near the edge line
+                        const dx = edge.target.x - edge.source.x;
+                        const dy = edge.target.y - edge.source.y;
+                        const length = Math.sqrt(dx * dx + dy * dy);
+                        if (length === 0) continue;
+
+                        const dot = ((x - edge.source.x) * dx + (y - edge.source.y) * dy) / (length * length);
+                        if (dot < 0 || dot > 1) continue;
+
+                        const projX = edge.source.x + dot * dx;
+                        const projY = edge.source.y + dot * dy;
+                        const distSq = (x - projX) * (x - projX) + (y - projY) * (y - projY);
+
+                        if (distSq < 25) { // 5px threshold
+                            return edge;
+                        }
+                    }
+                    return null;
+                }
+
+                canvas.addEventListener('mousedown', (event) => {
+                    const pos = getMousePos(event);
+                    mouseX = pos.x;
+                    mouseY = pos.y;
+                    draggedNode = findNode(pos.x, pos.y);
+
+                    if (draggedNode) {
+                        simulation.alphaTarget(0.3).restart();
+                        draggedNode.fx = draggedNode.x;
+                        draggedNode.fy = draggedNode.y;
+                        canvas.style.cursor = 'grabbing';
+                    }
+                });
+
+                canvas.addEventListener('mousemove', (event) => {
+                    const pos = getMousePos(event);
+
+                    if (draggedNode) {
+                        draggedNode.fx = pos.x;
+                        draggedNode.fy = pos.y;
+                    } else {
+                        // Update cursor based on what's under mouse
+                        const node = findNode(pos.x, pos.y);
+                        const edge = findEdge(pos.x, pos.y);
+                        canvas.style.cursor = (node || edge) ? 'pointer' : 'grab';
+                    }
+                });
+
+                canvas.addEventListener('mouseup', (event) => {
+                    if (draggedNode) {
+                        simulation.alphaTarget(0);
+                        draggedNode.fx = null;
+                        draggedNode.fy = null;
+                        draggedNode = null;
+                        canvas.style.cursor = 'grab';
+                    }
+                });
+
+                canvas.addEventListener('click', (event) => {
+                    const pos = getMousePos(event);
+                    const node = findNode(pos.x, pos.y);
+                    const edge = findEdge(pos.x, pos.y);
+
+                    if (node) {
+                        setActiveElement({ type: 'node', id: node.id });
+                    } else if (edge) {
                         setActiveElement({ type: 'edge', id: edge.id });
-                    });
-
-                labelSelection = labelGroup
-                    .selectAll('text')
-                    .data(edges, edge => edge.id)
-                    .join('text')
-                    .attr('class', 'edge-label')
-                    .text(edge => edge.predicate);
-
-                nodeSelection = nodeGroup
-                    .selectAll('g')
-                    .data(nodes, node => node.id)
-                    .join(enter => {
-                        const node = enter.append('g').attr('class', 'node').call(drag);
-                        node
-                            .append('circle')
-                            .attr('r', d => d.radius)
-                            .attr('fill', d => d.color);
-                        node
-                            .append('text')
-                            .attr('dy', d => d.radius + 14)
-                            .text(d => d.label);
-                        node.on('click', (event, d) => {
-                            event.stopPropagation();
-                            setActiveElement({ type: 'node', id: d.id });
-                        });
-                        return node;
-                    });
-
-                svg.on('click', () => {
-                    clearActiveElement();
+                    } else {
+                        clearActiveElement();
+                    }
                 });
 
+                // Animation loop with loading completion check
+                let tickCount = 0;
                 simulation.on('tick', () => {
-                    nodeSelection.attr('transform', d => `translate(${d.x}, ${d.y})`);
+                    render();
+                    tickCount++;
 
-                    linkSelection.attr('d', edge => {
-                        const source = edge.source;
-                        const target = edge.target;
-                        const dx = target.x - source.x;
-                        const dy = target.y - source.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-                        const normX = dx / distance;
-                        const normY = dy / distance;
-                        const sourcePadding = source.radius + 2;
-                        const targetPadding = target.radius + 8;
-                        const sourceX = source.x + normX * sourcePadding;
-                        const sourceY = source.y + normY * sourcePadding;
-                        const targetX = target.x - normX * targetPadding;
-                        const targetY = target.y - normY * targetPadding;
-                        return `M${sourceX},${sourceY} L${targetX},${targetY}`;
-                    });
-
-                    labelSelection
-                        .attr('x', edge => (edge.source.x + edge.target.x) / 2)
-                        .attr('y', edge => (edge.source.y + edge.target.y) / 2);
+                    // Hide loading after simulation has stabilized (around 100 ticks)
+                    if (tickCount === 100 && !state.sidebarDisabled) {
+                        const overlay = document.getElementById('loadingOverlay');
+                        if (overlay) overlay.style.display = 'none';
+                    }
                 });
+
+                // Handle window resize
+                window.addEventListener('resize', resizeCanvas);
+
+                render();
+            }
+
+            function resizeCanvas() {
+                if (!canvas || !ctx) return;
+
+                const rect = canvas.getBoundingClientRect();
+                console.log('Canvas resize - rect:', rect.width, 'x', rect.height);
+
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                ctx.scale(dpr, dpr);
+                canvas.style.width = rect.width + 'px';
+                canvas.style.height = rect.height + 'px';
+
+                // Update simulation center
+                if (simulation) {
+                    simulation.force('center', d3.forceCenter(rect.width / 2, rect.height / 2));
+                    simulation.alpha(0.3).restart();
+                }
+
+                render();
+            }
+
+
+            function render() {
+                if (!ctx || !canvas) return;
+
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width / (window.devicePixelRatio || 1),
+                             canvas.height / (window.devicePixelRatio || 1));
+
+                // Apply transform
+                ctx.save();
+                ctx.translate(transform.x, transform.y);
+                ctx.scale(transform.k, transform.k);
+
+                // Set text properties
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = '12px Inter, system-ui, sans-serif';
+
+                // Draw edges first
+                edges.forEach(edge => {
+                    if (!edge.source || !edge.target) return;
+
+                    const isHighlighted = highlightedEdges.has(edge.id);
+                    const isDimmed = isFiltering && !isHighlighted;
+
+                    // Calculate edge endpoints accounting for node radius
+                    const dx = edge.target.x - edge.source.x;
+                    const dy = edge.target.y - edge.source.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+                    const normX = dx / distance;
+                    const normY = dy / distance;
+
+                    const sourcePadding = edge.source.radius + 2;
+                    const targetPadding = edge.target.radius + 8;
+                    const sourceX = edge.source.x + normX * sourcePadding;
+                    const sourceY = edge.source.y + normY * sourcePadding;
+                    const targetX = edge.target.x - normX * targetPadding;
+                    const targetY = edge.target.y - normY * targetPadding;
+
+                    // Draw edge line
+                    ctx.strokeStyle = edge.color;
+                    ctx.globalAlpha = isDimmed ? 0.15 : (isHighlighted ? 1.0 : 0.55);
+                    ctx.lineWidth = 1.4;
+                    ctx.beginPath();
+                    ctx.moveTo(sourceX, sourceY);
+                    ctx.lineTo(targetX, targetY);
+                    ctx.stroke();
+
+                    // Draw arrowhead
+                    const arrowLength = 10;
+                    const arrowWidth = 5;
+                    const angle = Math.atan2(dy, dx);
+
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.beginPath();
+                    ctx.moveTo(targetX, targetY);
+                    ctx.lineTo(
+                        targetX - arrowLength * Math.cos(angle - arrowWidth * Math.PI / 180),
+                        targetY - arrowLength * Math.sin(angle - arrowWidth * Math.PI / 180)
+                    );
+                    ctx.lineTo(
+                        targetX - arrowLength * Math.cos(angle + arrowWidth * Math.PI / 180),
+                        targetY - arrowLength * Math.sin(angle + arrowWidth * Math.PI / 180)
+                    );
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Draw edge label if zoom level is appropriate
+                    if (transform.k > 0.8) {
+                        const labelX = (sourceX + targetX) / 2;
+                        const labelY = (sourceY + targetY) / 2;
+
+                        ctx.fillStyle = isDimmed ? 'rgba(30, 41, 59, 0.15)' : 'rgba(30, 41, 59, 0.8)';
+                        ctx.font = '10px Inter, system-ui, sans-serif';
+                        ctx.fillText(edge.predicate, labelX, labelY);
+                    }
+                });
+
+                // Draw nodes
+                nodes.forEach(node => {
+                    const isHighlighted = highlightedNodes.has(node.id);
+                    const isDimmed = isFiltering && !isHighlighted;
+
+                    // Draw node circle
+                    ctx.fillStyle = node.color;
+                    ctx.globalAlpha = isDimmed ? 0.15 : 1.0;
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    // Draw node border
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = isHighlighted ? 2.4 : 1.2;
+                    ctx.stroke();
+
+                    // Draw node label
+                    if (transform.k > 0.5) {
+                        ctx.fillStyle = isDimmed ? 'rgba(15, 23, 42, 0.15)' : '#0f172a';
+                        ctx.font = '12px Inter, system-ui, sans-serif';
+                        ctx.fillText(node.label, node.x, node.y + node.radius + 14);
+                    }
+                });
+
+                ctx.restore();
+                ctx.globalAlpha = 1.0;
             }
 
             function updateHighlights() {
-                if (!nodeSelection || !linkSelection) {
-                    return;
-                }
-
-                const highlightedNodes = new Set();
-                const highlightedEdges = new Set();
-                let isFiltering = false;
+                // Clear previous highlights
+                highlightedNodes.clear();
+                highlightedEdges.clear();
+                isFiltering = false;
 
                 const addNode = id => {
                     if (id) {
@@ -1016,16 +1167,8 @@
                     });
                 }
 
-                nodeSelection.classed('highlight', node => highlightedNodes.has(node.id));
-                nodeSelection.classed('dimmed', node => isFiltering && !highlightedNodes.has(node.id));
-
-                linkSelection.classed('highlight', edge => highlightedEdges.has(edge.id));
-                linkSelection.classed('dimmed', edge => isFiltering && !highlightedEdges.has(edge.id));
-
-                if (labelSelection) {
-                    labelSelection.classed('highlight', edge => highlightedEdges.has(edge.id));
-                    labelSelection.classed('dimmed', edge => isFiltering && !highlightedEdges.has(edge.id));
-                }
+                // Trigger re-render with updated highlights
+                render();
             }
 
             function toggleSidebar() {
@@ -1040,21 +1183,70 @@
                 sidebar.classList.toggle('collapsed', state.sidebarCollapsed);
                 toggleButton.classList.toggle('collapsed', state.sidebarCollapsed);
 
-                // Update network visualization size when sidebar toggles
+                // Trigger canvas resize when sidebar toggles
                 setTimeout(() => {
-                    const networkCanvas = document.getElementById('networkCanvas');
+                    resizeCanvas();
                 }, 300); // Wait for transition to complete
             }
 
             function disableSidebar() {
                 state.sidebarDisabled = true;
+
+                // Show loading overlay immediately
+                const overlay = document.getElementById('loadingOverlay');
+                const titleEl = document.getElementById('loadingTitle');
+                const messageEl = document.getElementById('loadingMessage');
+
+                if (titleEl) titleEl.textContent = 'Initializing Graph...';
+                if (messageEl) messageEl.textContent = 'Setting up the knowledge graph visualization.';
+                if (overlay) overlay.style.display = 'flex';
+
                 const layout = document.querySelector('.layout');
                 const sidebar = document.querySelector('.sidebar');
                 const toggleButton = document.getElementById('sidebarToggle');
+                const main = document.querySelector('.main');
+                const tabPanel = document.querySelector('.tab-panel');
+                const networkPanel = document.querySelector('.network-panel');
 
                 layout.classList.add('sidebar-disabled');
                 sidebar.style.display = 'none';
                 toggleButton.style.display = 'none';
+
+                // Force styles directly as well
+                main.style.width = '100vw';
+                tabPanel.style.padding = '0';
+                tabPanel.style.width = '100vw';
+                networkPanel.style.width = '100vw';
+                networkPanel.style.height = '100vh';
+                canvas.style.width = '100vw';
+                canvas.style.height = '100vh';
+
+                console.log('Sidebar disabled, forcing full width styles');
+
+                // First resize attempt
+                setTimeout(() => {
+                    canvas.offsetHeight; // Trigger reflow
+                    console.log('First resize attempt after 200ms');
+                    resizeCanvas();
+                }, 200);
+
+                // Second resize attempt
+                setTimeout(() => {
+                    console.log('Second resize attempt after 500ms');
+                    resizeCanvas();
+                }, 500);
+
+                // Final resize attempt and hide loading
+                setTimeout(() => {
+                    console.log('Final resize attempt after 800ms');
+                    resizeCanvas();
+
+                    // Hide loading overlay after final resize
+                    setTimeout(() => {
+                        const overlay = document.getElementById('loadingOverlay');
+                        if (overlay) overlay.style.display = 'none';
+                    }, 200);
+                }, 800);
 
                 // Notify parent about graph data
                 if (window.parent !== window) {
@@ -1125,8 +1317,7 @@
                     if (event.data.type === 'disableInternalSidebar') {
                         disableSidebar();
                     } else if (event.data.type === 'search') {
-                        const searchTerm = event.data.term || '';
-                        state.searchTerm = searchTerm;
+                        state.searchTerm = event.data.term || '';
                         updateHighlights();
                     } else if (event.data.type === 'focusCluster') {
                         toggleClusterFocus(event.data.clusterId);
