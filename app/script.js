@@ -1070,6 +1070,57 @@
 
             exampleSelect.disabled = false;
             exampleStatus.textContent = 'Select an example to load it instantly.';
+
+            // Auto-select and load the first example
+            if (items.length > 0) {
+                const firstExample = items[0];
+                exampleSelect.value = firstExample.slug;
+
+                // Automatically load the first example
+                const meta = exampleMetadata.get(firstExample.slug);
+                updateExampleLink(meta);
+                const title = meta?.title || firstExample.slug;
+                exampleStatus.textContent = `Loading ${title}...`;
+                setStatus(`Loading example graph: ${title}...`);
+
+                showLoadingInViewer('Loading Example', `Loading ${title}...`);
+                if (!hasLoadedGraph) {
+                    resetViewer();
+                }
+
+                exampleSelect.disabled = true;
+                fetch(`/api/examples/${firstExample.slug}`)
+                    .then(async response => {
+                        let payload;
+                        try {
+                            payload = await response.json();
+                        } catch (parseError) {
+                            if (response.ok) {
+                                throw new Error('Example payload is not valid JSON');
+                            }
+                            throw new Error(`Request failed (${response.status})`);
+                        }
+
+                        if (!response.ok) {
+                            const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
+                            throw new Error(message);
+                        }
+
+                        return handleGraphData(payload);
+                    })
+                    .then(() => {
+                        exampleStatus.textContent = `Loaded ${title}.`;
+                    })
+                    .catch(error => {
+                        console.error('[kg-gen] Failed to load example graph', error);
+                        setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
+                        exampleStatus.textContent = 'Could not load the selected sample.';
+                        hideLoadingInViewer();
+                    })
+                    .finally(() => {
+                        exampleSelect.disabled = exampleMetadata.size === 0;
+                    });
+            }
         } catch (error) {
             console.error('[kg-gen] Failed to load example graphs', error);
             exampleSelect.innerHTML = '';
