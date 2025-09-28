@@ -888,49 +888,79 @@
     }
 
     function showLoadingInPlaceholder(title, message) {
-        // Create loading overlay that covers entire screen
-        const loadingOverlay = document.createElement('div');
-        loadingOverlay.id = 'kg-gen-loading-overlay';
-        loadingOverlay.innerHTML = `
-            <div class="loading-card" style="background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); text-align: center; max-width: 300px; width: 100%; margin: auto;">
-                <div class="loading-spinner" style="width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
-                <h3 style="margin: 0 0 0.5rem; font-size: 1.125rem; font-weight: 600; color: #111827; word-break: break-word;">${title}</h3>
-                <p style="margin: 0; color: #6b7280; font-size: 0.875rem; word-break: break-word;">${message}</p>
-            </div>
-            <style>
-                #kg-gen-loading-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(255, 255, 255, 0.3);
-                    backdrop-filter: blur(1px);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 999999;
-                    padding: 1rem;
-                    pointer-events: auto;
-                }
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-                @media (max-width: 768px) {
-                    #kg-gen-loading-overlay .loading-card {
-                        padding: 1.5rem !important;
-                        max-width: 280px !important;
-                    }
-                }
-            </style>
-        `;
-
-        // Remove any existing loading overlay
+        // Remove any existing loading overlay first
         const existingOverlay = document.getElementById('kg-gen-loading-overlay');
         if (existingOverlay) {
             existingOverlay.remove();
         }
+
+        // Create loading overlay that covers entire screen
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'kg-gen-loading-overlay';
+
+        // Set all styles directly on the element to ensure they're applied
+        Object.assign(loadingOverlay.style, {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            right: '0',
+            bottom: '0',
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: '1000001',
+            padding: '1rem',
+            pointerEvents: 'auto',
+            overflow: 'hidden',
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        });
+
+        loadingOverlay.innerHTML = `
+            <div class="loading-card" style="
+                background: white;
+                border-radius: 8px;
+                padding: 2rem;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                text-align: center;
+                max-width: 300px;
+                width: 100%;
+                margin: auto;
+                pointer-events: none;
+            ">
+                <div class="loading-spinner" style="
+                    width: 32px;
+                    height: 32px;
+                    border: 3px solid #e5e7eb;
+                    border-top: 3px solid #3b82f6;
+                    border-radius: 50%;
+                    animation: kg-spinner-spin 1s linear infinite;
+                    margin: 0 auto 1rem;
+                "></div>
+                <h3 style="
+                    margin: 0 0 0.5rem;
+                    font-size: 1.125rem;
+                    font-weight: 600;
+                    color: #111827;
+                    word-break: break-word;
+                ">${title}</h3>
+                <p style="
+                    margin: 0;
+                    color: #6b7280;
+                    font-size: 0.875rem;
+                    word-break: break-word;
+                ">${message}</p>
+            </div>
+            <style>
+                @keyframes kg-spinner-spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        `;
 
         // Add event listeners to prevent any clicks from going through
         loadingOverlay.addEventListener('click', (e) => {
@@ -951,12 +981,14 @@
             e.stopImmediatePropagation();
         }, true);
 
-        // Append to body to cover everything
+        // Insert at the very end of the body
         document.body.appendChild(loadingOverlay);
 
         // Hide the placeholder to avoid showing duplicate loading text
-        placeholder.setAttribute('hidden', 'hidden');
-        placeholder.style.display = 'none';
+        if (placeholder) {
+            placeholder.setAttribute('hidden', 'hidden');
+            placeholder.style.display = 'none';
+        }
     }
 
     function hideLoadingInPlaceholder() {
@@ -1189,7 +1221,17 @@
         refreshCallbacks.length = 0;
         refreshCallbacks.push(() => renderView(lastViewModel, lastGraphPayload));
         hasLoadedGraph = true;
-        hideLoadingInViewer();
+
+        // Wait for iframe to be ready, then show initializing with global loading
+        viewer.onload = () => {
+            // Update global loading to show "Initializing Graph"
+            showLoadingInViewer('Initializing Graph', 'Setting up the knowledge graph visualization.');
+
+            // Keep global loading for graph initialization
+            setTimeout(() => {
+                hideLoadingInViewer();
+            }, 1500); // Give time for graph initialization
+        };
 
         // Notify sidebar manager about the new graph data
         if (window.sidebarManager) {
