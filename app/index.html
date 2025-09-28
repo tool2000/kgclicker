@@ -10,6 +10,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="sidebar.css">
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/simplebar@latest/dist/simplebar.css"
+    />
 </head>
 
 <body>
@@ -26,7 +30,7 @@
     </div>
 
     <div class="layout">
-        <main>
+        <main class="sidebar" id="sidebar" data-simplebar>
             <header>
                 <h1>Knowledge Graph Explorer</h1>
                 <p class="description">Load an existing <code>graph.json</code> or generate one from text using
@@ -169,6 +173,7 @@
 
     <script src="script.js"></script>
     <script src="sidebar.js"></script>
+    <script src="https://unpkg.com/simplebar@latest/dist/simplebar.min.js"></script>
 </body>
 
 </html>

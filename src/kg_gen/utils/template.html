@@ -474,15 +474,15 @@
             <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar"></button>
             <div class="tab-bar" style="padding-bottom: 10px;">
                 <button class="tab active" data-tab="network">Network</button>
-                <button class="tab" data-tab="relations">Relations</button>
-                <button class="tab" data-tab="insights">Insights</button>
+                <!-- <button class="tab" data-tab="relations">Relations</button>
+                <button class="tab" data-tab="insights">Insights</button> -->
             </div>
             <section id="network" class="tab-panel active">
                 <div class="network-panel">
                     <div id="networkCanvas"></div>
                 </div>
             </section>
-            <section id="relations" class="tab-panel">
+            <!-- <section id="relations" class="tab-panel">
                 <div class="table-container">
                     <table>
                         <thead>
@@ -500,7 +500,7 @@
                 <div class="table-container" style="padding: 20px;">
                     <div id="insightsContent"></div>
                 </div>
-            </section>
+            </section> -->
         </main>
     </div>
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -614,64 +614,64 @@
                     .join('');
             }
 
-            function renderRelationsTable() {
-                const tbody = document.getElementById('relationsTable');
-                tbody.innerHTML = vizData.relations
-                    .map(rel => `
-                        <tr data-edge="${rel.edgeId}">
-                            <td>${rel.source}</td>
-                            <td><span class="pill" style="border: 1px solid ${rel.color}; background: ${rel.color}1a;">${rel.predicate}</span></td>
-                            <td>${rel.target}</td>
-                        </tr>
-                    `)
-                    .join('');
-            }
+            // function renderRelationsTable() {
+            //     const tbody = document.getElementById('relationsTable');
+            //     tbody.innerHTML = vizData.relations
+            //         .map(rel => `
+            //             <tr data-edge="${rel.edgeId}">
+            //                 <td>${rel.source}</td>
+            //                 <td><span class="pill" style="border: 1px solid ${rel.color}; background: ${rel.color}1a;">${rel.predicate}</span></td>
+            //                 <td>${rel.target}</td>
+            //             </tr>
+            //         `)
+            //         .join('');
+            // }
 
-            function renderInsights() {
-                const insights = document.getElementById('insightsContent');
-                const clusters = vizData.clusters
-                    .map(cluster => `
-                        <div class="list-item" style="border-left: 4px solid ${cluster.color};">
-                            <div>
-                                <strong>${cluster.label}</strong>
-                                <div class="meta">Members: ${cluster.members.join(', ')}</div>
-                            </div>
-                            <div>${cluster.size}</div>
-                        </div>
-                    `)
-                    .join('');
+            // function renderInsights() {
+            //     const insights = document.getElementById('insightsContent');
+            //     const clusters = vizData.clusters
+            //         .map(cluster => `
+            //             <div class="list-item" style="border-left: 4px solid ${cluster.color};">
+            //                 <div>
+            //                     <strong>${cluster.label}</strong>
+            //                     <div class="meta">Members: ${cluster.members.join(', ')}</div>
+            //                 </div>
+            //                 <div>${cluster.size}</div>
+            //             </div>
+            //         `)
+            //         .join('');
 
-                const components = vizData.components
-                    .map((component, index) => `
-                        <div class="list-item">
-                            <div>
-                                <strong>Component ${index + 1}</strong>
-                                <div class="meta">${component.members.join(', ')}</div>
-                            </div>
-                            <div>${component.size}</div>
-                        </div>
-                    `)
-                    .join('');
+            //     const components = vizData.components
+            //         .map((component, index) => `
+            //             <div class="list-item">
+            //                 <div>
+            //                     <strong>Component ${index + 1}</strong>
+            //                     <div class="meta">${component.members.join(', ')}</div>
+            //                 </div>
+            //                 <div>${component.size}</div>
+            //             </div>
+            //         `)
+            //         .join('');
 
-                const isolates = vizData.isolatedEntities.length
-                    ? vizData.isolatedEntities.join(', ')
-                    : 'None';
+            //     const isolates = vizData.isolatedEntities.length
+            //         ? vizData.isolatedEntities.join(', ')
+            //         : 'None';
 
-                insights.innerHTML = `
-                    <div class="section">
-                        <h2>Clusters</h2>
-                        <div class="list">${clusters || '<div class="meta">No clusters</div>'}</div>
-                    </div>
-                    <div class="section">
-                        <h2>Connected components</h2>
-                        <div class="list">${components || '<div class="meta">Single connected component</div>'}</div>
-                    </div>
-                    <div class="section">
-                        <h2>Isolated entities</h2>
-                        <div class="meta">${isolates}</div>
-                    </div>
-                `;
-            }
+            //     insights.innerHTML = `
+            //         <div class="section">
+            //             <h2>Clusters</h2>
+            //             <div class="list">${clusters || '<div class="meta">No clusters</div>'}</div>
+            //         </div>
+            //         <div class="section">
+            //             <h2>Connected components</h2>
+            //             <div class="list">${components || '<div class="meta">Single connected component</div>'}</div>
+            //         </div>
+            //         <div class="section">
+            //             <h2>Isolated entities</h2>
+            //             <div class="meta">${isolates}</div>
+            //         </div>
+            //     `;
+            // }
 
             function setActiveElement(element) {
                 state.activeElement = element;
@@ -795,8 +795,8 @@
 
             function createNetwork() {
                 const container = document.getElementById('networkCanvas');
-                const width = container.clientWidth || container.getBoundingClientRect().width || 900;
-                const height = container.clientHeight || container.getBoundingClientRect().height || 680;
+                const width = container.clientWidth || container.getBoundingClientRect().width ;
+                const height = container.clientHeight || container.getBoundingClientRect().height ;
 
                 const nodes = vizData.nodes.map(node => ({ ...node }));
                 const edges = vizData.edges.map(edge => ({ ...edge }));
@@ -1043,13 +1043,6 @@
                 // Update network visualization size when sidebar toggles
                 setTimeout(() => {
                     const networkCanvas = document.getElementById('networkCanvas');
-                    if (networkCanvas && networkCanvas.firstChild) {
-                        const svg = networkCanvas.querySelector('svg');
-                        if (svg) {
-                            const rect = networkCanvas.getBoundingClientRect();
-                            svg.attr('width', rect.width).attr('height', rect.height);
-                        }
-                    }
                 }, 300); // Wait for transition to complete
             }
 
@@ -1081,16 +1074,16 @@
                     item.addEventListener('click', () => togglePredicateFocus(item.getAttribute('data-predicate')));
                 });
 
-                document.getElementById('relationsTable').addEventListener('click', event => {
-                    const row = event.target.closest('tr');
-                    if (!row) {
-                        return;
-                    }
-                    const edgeId = row.getAttribute('data-edge');
-                    if (edgeId) {
-                        setActiveElement({ type: 'edge', id: edgeId });
-                    }
-                });
+                // document.getElementById('relationsTable').addEventListener('click', event => {
+                //     const row = event.target.closest('tr');
+                //     if (!row) {
+                //         return;
+                //     }
+                //     const edgeId = row.getAttribute('data-edge');
+                //     if (edgeId) {
+                //         setActiveElement({ type: 'edge', id: edgeId });
+                //     }
+                // });
 
                 const searchInput = document.getElementById('searchInput');
                 searchInput.addEventListener('input', () => {
@@ -1165,8 +1158,8 @@
             renderStats();
             renderTopLists();
             renderClusters();
-            renderRelationsTable();
-            renderInsights();
+            // renderRelationsTable();
+            // renderInsights();
             createNetwork();
             bindInteractions();
         })();
