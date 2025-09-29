@@ -1,6 +1,6 @@
 [project]
 name = "kg-gen"
-version = "0.2.3"
+version = "0.3.0"
 authors = [{ name = "Belinda Mo", email = "justanexperimentpark@gmail.com" }]
 description = "Extract a knowledge graph using LLMs from any text or messages array"
 readme = "README.md"
