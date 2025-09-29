@@ -15,3 +15,9 @@ data/
 .ruff_cache/
 examples/*.json
 examples/*.html
+experiments/MINE/results
+.gcloud
+experiments/MINE/answers.json
+experiments/MINE/essays.json
+Dockerfile
+.dockerignore

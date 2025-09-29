@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Knowledge Graph Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="sidebar.css">
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/simplebar@latest/dist/simplebar.css"
+    />
+</head>
+
+<body>
+    <!-- Mobile Top Bar -->
+    <div class="mobile-top-bar">
+        <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Toggle navigation menu">
+            <div class="hamburger-icon">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </div>
+        </button>
+        <h1 class="mobile-app-title">Knowledge Graph Explorer</h1>
+    </div>
+
+    <div class="layout">
+        <main class="sidebar" id="sidebar" data-simplebar>
+            <header>
+                <h1>Knowledge Graph Explorer</h1>
+                <p class="description">Load an existing <code>graph.json</code> or generate one from text using
+                    <code>kg-gen</code>. Rendering stays in your browser.
+                </p>
+            </header>
+
+            <!-- Unified Sidebar Mode Tabs -->
+            <div class="sidebar-mode-tabs">
+                <button class="sidebar-mode-tab active" data-mode="setup">Setup</button>
+                <button class="sidebar-mode-tab" data-mode="analysis">Analysis</button>
+            </div>
+
+            <!-- Setup Mode Content -->
+            <div class="sidebar-mode-content" id="setupModeContent">
+                <section class="card" id="existingGraphCard">
+                    <h2>Open existing graph</h2>
+                    <p>Upload a saved visualization JSON or raw <code>graph.json</code> to render it instantly.</p>
+                    <div class="drop-zone" id="graphDropZone" role="button" tabindex="0" aria-controls="graphFile"
+                        aria-label="Upload graph JSON">
+                        <strong>Drop file here or click to choose</strong>
+                        <span class="hint">Accepts <code>.json</code> exports from kg-gen</span>
+                    </div>
+                    <input type="file" id="graphFile" accept="application/json,.json" hidden />
+                    <div class="field-group">
+                        <div class="field">
+                            <label for="exampleGraph">Or load a sample</label>
+                            <select id="exampleGraph" disabled>
+                                <option value="">Loading samples...</option>
+                            </select>
+                            <div class="hint" id="exampleStatus">Select an example to load it instantly.</div>
+                            <a id="exampleLink" class="hint-link" href="#" target="_blank" rel="noopener" hidden>View on
+                                Wikipedia</a>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card" id="generateCard">
+                    <h2>Generate from text</h2>
+                    <p>Provide your OpenAI API key and either paste text or upload a <code>.txt</code> document. The request
+                        runs through <code>KGGen</code> on this server.</p>
+
+                    <div class="field-group">
+                        <div>
+                            <label for="apiKey">OpenAI API key</label>
+                            <input type="password" id="apiKey" autocomplete="new-password" placeholder="sk-..." />
+                        </div>
+                        <div class="field-row">
+                            <div>
+                                <label for="model">Model</label>
+                                <select id="model">
+                                    <option value="openai/gpt-4o">openai/gpt-4o</option>
+                                    <option value="openai/gpt-5-nano">openai/gpt-5-nano</option>
+                                    <option value="openai/gpt-5">openai/gpt-5</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="chunkSize">Chunk size (chars)</label>
+                                <input type="number" id="chunkSize" min="0" placeholder="e.g. 1500" />
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <label class="checkbox">
+                                <input type="checkbox" id="clusterToggle" />
+                                <span>Enable clustering</span>
+                            </label>
+                            <div class="field">
+                                <label for="temperature">Temperature</label>
+                                <input type="number" id="temperature" step="0.1" min="0" max="2" placeholder="Default" />
+                            </div>
+                        </div>
+                        <div>
+                            <label for="context">Context (optional)</label>
+                            <input type="text" id="context" placeholder="Short description of the corpus" />
+                        </div>
+                        <div>
+                            <label for="sourceText">Paste text</label>
+                            <textarea id="sourceText"
+                                placeholder="Add any text you would like to convert into a knowledge graph..."></textarea>
+                            <div class="input-hint" id="sourceTextHint">To enter text, clear the file selection first</div>
+                        </div>
+                        <div>
+                            <label for="textFile">Or upload a .txt file</label>
+                            <input type="file" id="textFile" accept="text/plain" />
+                            <div class="input-hint" id="textFileHint">To upload a file, clear the text input first</div>
+                            <div class="file-note">Files are processed on this machine and never leave your environment.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="button-row">
+                        <button class="primary" id="generateButton">Generate graph</button>
+                        <button class="secondary" id="clearTextButton" type="button">Clear inputs</button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Analysis Mode Content -->
+            <div class="sidebar-mode-content" id="analysisModeContent" style="display: none;">
+                <div class="analysis-placeholder">
+                    <p>Load or generate a graph to see analysis here.</p>
+                </div>
+                <div class="analysis-content" id="analysisContent" style="display: none;">
+                    <div class="stats-grid" id="statsGrid"></div>
+                    <div class="analysis-section">
+                        <h2>Search</h2>
+                        <input id="searchInput" class="search-input" type="text" placeholder="Search for entities or relations" />
+                        <div class="search-hint">Matches are highlighted. Press Escape to clear.</div>
+                    </div>
+                    <div class="analysis-section" id="selectionSection">
+                        <h2>Selection</h2>
+                        <div id="selectionDetails" class="selection-card">Click a node or relation in the network to inspect details.</div>
+                    </div>
+                    <div class="analysis-section">
+                        <h2>Entity Clusters</h2>
+                        <div id="clusterList" class="list"></div>
+                    </div>
+                    <div class="analysis-section">
+                        <h2>Top Entities</h2>
+                        <div id="topEntities" class="list"></div>
+                    </div>
+                    <div class="analysis-section">
+                        <h2>Top Relations</h2>
+                        <div id="topRelations" class="list"></div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <section class="viewer-wrapper">
+            <iframe id="viewer" title="Knowledge Graph Explorer" hidden></iframe>
+            <div class="floating-actions" id="floatingActions" hidden>
+                <button class="secondary" id="downloadGraph" type="button">Download graph.json</button>
+                <button class="secondary" id="refreshView" type="button">Reload view</button>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="sidebar.js"></script>
+    <script src="https://unpkg.com/simplebar@latest/dist/simplebar.min.js"></script>
+</body>
+
+</html>

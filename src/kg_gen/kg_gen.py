@@ -10,6 +10,10 @@ import dspy
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
+import networkx as nx
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 # Configure dspy logging to only show errors
 import logging
@@ -27,6 +31,7 @@ class KGGen:
         reasoning_effort: str = None,
         api_key: str = None,
         api_base: str = None,
+        retrieval_model: Optional[str] = None,
     ):
         """Initialize KGGen with optional model configuration
 
@@ -36,15 +41,23 @@ class KGGen:
             api_key: API key for model access
             api_base: Specify the base URL endpoint for making API calls to a language model service
         """
-        self.dspy = dspy
         self.model = model
         self.reasoning_effort = reasoning_effort
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.api_key = api_key
         self.api_base = api_base
+        self.retrieval_model: Optional[SentenceTransformer] = None
+        self.lm = None
+
         self.init_model(
-            model, reasoning_effort, max_tokens, temperature, api_key, api_base
+            model=model,
+            reasoning_effort=reasoning_effort,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            api_key=api_key,
+            api_base=api_base,
+            retrieval_model=retrieval_model,
         )
 
     def validate_reasoning_effort(self, reasoning_effort: str):
@@ -67,6 +80,7 @@ class KGGen:
         reasoning_effort: str = None,
         max_tokens: int = None,
         temperature: float = None,
+        retrieval_model: str = None,
         api_key: str = None,
         api_base: str = None,
     ):
@@ -77,6 +91,10 @@ class KGGen:
             temperature: Temperature for model sampling
             api_key: API key for model access
             api_base: API base for model access
+            retrieval_model: Name of retrieval model to use
+            reasoning_effort: Reasoning effort for model
+            max_tokens: Maximum tokens for model
+            temperature: Temperature for model sampling
         """
 
         # Update instance variables if new values provided
@@ -92,6 +110,8 @@ class KGGen:
             self.temperature = temperature
         if reasoning_effort is not None:
             self.reasoning_effort = reasoning_effort
+        if retrieval_model is not None:
+            self.retrieval_model = SentenceTransformer(retrieval_model)
 
         self.validate_temperature(self.temperature)
         self.validate_reasoning_effort(self.reasoning_effort)
@@ -116,7 +136,15 @@ class KGGen:
                 reasoning_effort=self.reasoning_effort,
             )
 
-        self.dspy.configure(lm=self.lm)
+    @staticmethod
+    def from_file(file_path: str) -> Graph:
+        with open(file_path, "r") as f:
+            graph = Graph(**json.load(f))
+        return graph
+
+    @staticmethod
+    def from_dict(graph_dict: dict) -> Graph:
+        return Graph(**graph_dict)
 
     def generate(
         self,
@@ -125,16 +153,9 @@ class KGGen:
         api_key: str = None,
         api_base: str = None,
         context: str = "",
-        # example_relations: Optional[Union[
-        #   List[Tuple[str, str, str]],
-        #   List[Tuple[Tuple[str, str], str, Tuple[str, str]]]
-        # ]] = None,
         chunk_size: Optional[int] = None,
         cluster: bool = False,
         temperature: float = None,
-        # node_labels: Optional[List[str]] = None,
-        # edge_labels: Optional[List[str]] = None,
-        # ontology: Optional[List[Tuple[str, str, str]]] = None,
         output_folder: Optional[str] = None,
     ) -> Graph:
         """Generate a knowledge graph from input text or messages.
@@ -145,14 +166,10 @@ class KGGen:
             api_key (str): OpenAI API key for making model calls
             chunk_size: Max size of text chunks in characters to process
             context: Description of data context
-            example_relations: Example relationship tuples
-            node_labels: Valid node label strings
-            edge_labels: Valid edge label strings
-            ontology: Valid node-edge-node structure tuples
             output_folder: Path to save partial progress
 
         Returns:
-            Generated knowledge graph
+            Graph: Generated knowledge graph
         """
 
         # Process input data
@@ -187,29 +204,31 @@ class KGGen:
             )
 
         if not chunk_size:
-            entities = get_entities(
-                self.dspy, processed_input, is_conversation=is_conversation
-            )
-            relations = get_relations(
-                self.dspy, processed_input, entities, is_conversation=is_conversation
-            )
+            with dspy.context(lm=self.lm):
+                entities = get_entities(
+                    processed_input, is_conversation=is_conversation
+                )
+                relations = get_relations(
+                    processed_input, entities, is_conversation=is_conversation
+                )
         else:
             chunks = chunk_text(processed_input, chunk_size)
             entities = set()
             relations = set()
 
-            def process_chunk(chunk):
-                chunk_entities = get_entities(
-                    self.dspy, chunk, is_conversation=is_conversation
-                )
-                chunk_relations = get_relations(
-                    self.dspy, chunk, chunk_entities, is_conversation=is_conversation
-                )
-                return chunk_entities, chunk_relations
+            def process_chunk(chunk, lm):
+                with dspy.context(lm=lm):
+                    chunk_entities = get_entities(chunk, is_conversation)
+                    chunk_relations = get_relations(
+                        chunk, chunk_entities, is_conversation=is_conversation
+                    )
+                    return chunk_entities, chunk_relations
 
             # Process chunks in parallel using ThreadPoolExecutor
             with ThreadPoolExecutor() as executor:
-                results = list(executor.map(process_chunk, chunks))
+                results = list(
+                    executor.map(process_chunk, chunks, [self.lm] * len(chunks))
+                )
 
             # Combine results
             for chunk_entities, chunk_relations in results:
@@ -235,16 +254,16 @@ class KGGen:
                 "edges": list(graph.edges),
                 "entity_clusters": {
                     k: list(v) for k, v in graph.entity_clusters.items()
-                } if graph.entity_clusters else {},
-                "edge_clusters": {k: list(v) for k, v in graph.edge_clusters.items()} if graph.edge_clusters else {},
+                }
+                if graph.entity_clusters
+                else None,
+                "edge_clusters": {k: list(v) for k, v in graph.edge_clusters.items()}
+                if graph.edge_clusters
+                else None,
             }
 
             with open(output_path, "w") as f:
-                json.dump(
-                    graph_dict,
-                    f,
-                    indent=2,
-                )
+                json.dump(graph_dict, f, indent=2)
 
         return graph
 
@@ -266,7 +285,8 @@ class KGGen:
                 api_base=api_base or self.api_base,
             )
 
-        return cluster_graph(self.dspy, graph, context)
+        with dspy.context(lm=self.lm):
+            return cluster_graph(graph, context)
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
         # Initialize empty sets for combined graph
@@ -286,3 +306,100 @@ class KGGen:
     @staticmethod
     def visualize(graph: Graph, output_path: str, open_in_browser: bool = False):
         visualize_kg(graph, output_path, open_in_browser=open_in_browser)
+
+    # ====== Retrieval Methods ======
+
+    def _parse_embedding_model(
+        self, model: Optional[SentenceTransformer] = None
+    ) -> Optional[SentenceTransformer]:
+        if model is None:
+            model = self.retrieval_model
+        if model is None:
+            raise ValueError("No retrieval model provided")
+        return model
+
+    @staticmethod
+    def to_nx(graph: Graph) -> nx.DiGraph:
+        G = nx.DiGraph()
+        for entity in graph.entities:
+            G.add_node(entity)
+
+        for relation in graph.relations:
+            source, rel, target = relation
+            G.add_edge(source, target, relation=rel)
+        return G
+
+    def generate_embeddings(
+        self,
+        graph: Union[Graph, nx.DiGraph],
+        model: Optional[SentenceTransformer] = None,
+    ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+        model = self._parse_embedding_model(model)
+        if isinstance(graph, Graph):
+            graph = self.to_nx(graph)
+
+        node_embeddings = {node: model.encode(node).tolist() for node in graph.nodes}
+        relation_embeddings = {
+            rel: model.encode(rel).tolist()
+            for rel in set(edge[2]["relation"] for edge in graph.edges(data=True))
+        }
+        return node_embeddings, relation_embeddings
+
+    def retrieve(
+        self,
+        query: str,
+        node_embeddings: dict[str, np.ndarray],
+        graph: nx.DiGraph,
+        model: Optional[SentenceTransformer] = None,
+        k: int = 8,
+        verbose: bool = False,
+    ) -> tuple[list[tuple[str, float]], set[str], str]:
+        model = self._parse_embedding_model(model)
+        top_nodes = self.retrieve_relevant_nodes(query, node_embeddings, model, k)
+        context = set()
+        for node, _ in top_nodes:
+            node_context = self.retrieve_context(node, graph)
+            if verbose:
+                print(f"Context for node {node}: {node_context}")
+            context.update(node_context)
+        context_text = " ".join(context)
+        if verbose:
+            print(f"Combined context: '{context_text}'\n---")
+        return top_nodes, context, context_text
+
+    @staticmethod
+    def retrieve_relevant_nodes(
+        query: str,
+        node_embeddings: dict[str, np.ndarray],
+        model: SentenceTransformer,
+        k: int = 8,
+    ) -> list[tuple[str, float]]:
+        query_embedding = model.encode(query).reshape(1, -1)
+        similarities = []
+        for node, embed in node_embeddings.items():
+            target_embedding = np.array(embed).reshape(1, -1)
+            similarity = cosine_similarity(query_embedding, target_embedding)[0][0]
+            similarities.append((node, similarity))
+        similarities = sorted(similarities, key=lambda x: x[1], reverse=True)
+        return similarities[:k]
+
+    @staticmethod
+    def retrieve_context(node: str, graph: nx.DiGraph, depth: int = 2) -> list[str]:
+        context = set()
+
+        def explore_neighbors(current_node, current_depth):
+            if current_depth > depth:
+                return
+            # Outgoing edges
+            for neighbor in graph.neighbors(current_node):
+                rel = graph[current_node][neighbor]["relation"]
+                context.add(f"{current_node} {rel} {neighbor}.")
+                explore_neighbors(neighbor, current_depth + 1)
+            # Incoming edges
+            for neighbor in graph.predecessors(current_node):
+                rel = graph[neighbor][current_node]["relation"]
+                context.add(f"{neighbor} {rel} {current_node}.")
+                explore_neighbors(neighbor, current_depth + 1)
+
+        explore_neighbors(node, 1)
+        return list(context)

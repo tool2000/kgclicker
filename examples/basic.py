@@ -1,7 +1,7 @@
-# from kg_gen.models import Graph
-# import json
+from kg_gen.models import Graph  # noqa: F401
 from kg_gen import KGGen
-import os
+import json  # noqa: F401
+import os  # noqa: F401
 
 text = """
 A Place for Demons
@@ -27,8 +27,8 @@ nose over the matter.
 """
 
 kg = KGGen()
-with open("tests/data/kingkiller_chapter_one.txt", "r", encoding="utf-8") as f:
-    text = f.read()
+# with open("tests/data/kingkiller_chapter_one.txt", "r", encoding="utf-8") as f:
+#     text = f.read()
 
 graph = kg.generate(
     input_data=text,
