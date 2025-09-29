@@ -30,17 +30,17 @@ kg = KGGen()
 # with open("tests/data/kingkiller_chapter_one.txt", "r", encoding="utf-8") as f:
 #     text = f.read()
 
-# graph = kg.generate(
-#     input_data=text,
-#     model="openai/gpt-4o",
-#     api_key=os.getenv("OPENAI_API_KEY"),
-#     chunk_size=1000,
-#     cluster=True,
-#     temperature=0.0,
-#     context="Kingkiller Chronicles",
-#     output_folder="./examples/",
-# )
-with open("./examples/graph.json", "r") as f:
-    graph = Graph(**json.load(f))
+graph = kg.generate(
+    input_data=text,
+    model="openai/gpt-4o",
+    api_key=os.getenv("OPENAI_API_KEY"),
+    chunk_size=1000,
+    cluster=True,
+    temperature=0.0,
+    context="Kingkiller Chronicles",
+    output_folder="./examples/",
+)
+# with open("./examples/graph.json", "r") as f:
+#     graph = Graph(**json.load(f))
 
 KGGen.visualize(graph, "./examples/basic-graph.html", True)

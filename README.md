@@ -61,7 +61,7 @@ graph_1 = kg.generate(
 #           ('Linda', 'is mother of', 'Josh')}
 ```
 
-### Visualizing KG's
+### Visualizing KGs
 ```python
 KGGen.visualize(graph, output_path, open_in_browser=True)
 ```
@@ -224,6 +224,7 @@ And relations like:
 - (assistant, "states", "Paris")
 - (Paris, "is capital of", "France")
 
+##
 ## API Reference
 
 ### KGGen Class
