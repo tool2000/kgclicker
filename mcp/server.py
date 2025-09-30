@@ -1,18 +1,28 @@
 """
 This is the MCP server for kg-gen agent memory.
-Run the server locally with: `fastmcp run server.py`
+Run the server locally with: `kggen mcp` or `fastmcp run server.py`
 
 You can specify configuration via environment variables:
 - KG_MODEL (default: "openai/gpt-4o")
 - KG_API_KEY (optional, can also use OPENAI_API_KEY)
 - KG_STORAGE_PATH (default: "./kg_memory.json")
+- KG_CLEAR_MEMORY (default: "false", set to "true" to clear memory on startup)
 
-Example: KG_MODEL=gemini/gemini-2.0-flash fastmcp run server.py
+CLI Examples:
+- kggen mcp (clears memory by default, uses ./kg_memory.json relative to current directory)
+- kggen mcp --keep-memory (preserves existing memory)
+- kggen mcp --model gemini/gemini-2.0-flash --storage-path ./custom.json
+- kggen mcp --storage-path /absolute/path/to/memory.json (absolute path)
+
+Environment Examples:
+- KG_MODEL=gemini/gemini-2.0-flash fastmcp run server.py
+- KG_CLEAR_MEMORY=true fastmcp run server.py
 
 The server provides tools for agent memory:
 - add_memories: Extract and store memories from unstructured text
 - retrieve_relevant_memories: Retrieve relevant memories for a query
 - visualize_memories: Generate HTML visualization of the memory graph
+- get_memory_stats: Get statistics about stored memories
 """
 
 import os
@@ -36,9 +46,22 @@ def initialize_kg_gen():
     model = os.environ.get("KG_MODEL", "openai/gpt-4o")
     api_key = os.environ.get("KG_API_KEY") or os.environ.get("OPENAI_API_KEY")
     storage_path = os.environ.get("KG_STORAGE_PATH", "./kg_memory.json")
+    clear_memory = os.environ.get("KG_CLEAR_MEMORY", "false").lower() == "true"
+    
+    # Ensure storage path is absolute for consistent behavior
+    if not os.path.isabs(storage_path):
+        storage_path = os.path.abspath(storage_path)
     
     print(f"Initializing KGGen with model: {model}")
     print(f"Using storage path: {storage_path}")
+    
+    # Clear existing memory if requested
+    if clear_memory and os.path.exists(storage_path):
+        try:
+            os.remove(storage_path)
+            print(f"Cleared existing memory file: {storage_path}")
+        except Exception as e:
+            print(f"Warning: Could not clear memory file: {e}")
     
     # Initialize KGGen
     kg_gen_instance = KGGen(
@@ -102,7 +125,7 @@ def save_memory_graph():
 # Initialize on module load
 initialize_kg_gen()
 
-mcp = FastMCP(name="KG Memory")
+mcp = FastMCP(name="KGGen")
 
 @mcp.tool
 def add_memories(text: str) -> str:
