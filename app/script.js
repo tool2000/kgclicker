@@ -1273,6 +1273,43 @@
             URL.revokeObjectURL(activeUrl);
         }
         activeUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+
+        let fallbackTimer = null;
+
+        function cleanupLoadHandlers() {
+            viewer.removeEventListener('load', onLoadHandler);
+            viewer.removeEventListener('error', onErrorHandler);
+        }
+
+        function onLoadHandler() {
+            if (fallbackTimer !== null) {
+                clearTimeout(fallbackTimer);
+                fallbackTimer = null;
+            }
+            cleanupLoadHandlers();
+            setTimeout(() => {
+                hideLoadingInViewer();
+            }, 500);
+        }
+
+        function onErrorHandler() {
+            if (fallbackTimer !== null) {
+                clearTimeout(fallbackTimer);
+                fallbackTimer = null;
+            }
+            cleanupLoadHandlers();
+            hideLoadingInViewer();
+        }
+
+        viewer.addEventListener('load', onLoadHandler, { once: true });
+        viewer.addEventListener('error', onErrorHandler, { once: true });
+
+        fallbackTimer = setTimeout(() => {
+            cleanupLoadHandlers();
+            fallbackTimer = null;
+            hideLoadingInViewer();
+        }, 5000);
+
         viewer.src = activeUrl;
         viewer.removeAttribute('hidden');
         if (viewerWrapper) {
@@ -1284,14 +1321,6 @@
         refreshCallbacks.length = 0;
         refreshCallbacks.push(() => renderView(lastViewModel, lastGraphPayload));
         hasLoadedGraph = true;
-
-        // Wait for iframe to be ready, then hide loading
-        viewer.onload = () => {
-            // Keep loading for a brief moment to allow graph initialization
-            setTimeout(() => {
-                hideLoadingInViewer();
-            }, 500); // Reduced delay
-        };
 
         // Notify sidebar manager about the new graph data
         if (window.sidebarManager) {

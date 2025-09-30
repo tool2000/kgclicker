@@ -15,11 +15,11 @@ printf "[deploy] Building and pushing image %s\n" "$IMAGE_URI"
 # Change to project root for build context
 cd "$(dirname "$0")/.."
 
-# Create symlink to Dockerfile for gcloud builds
-ln -sf app/Dockerfile Dockerfile
-ln -sf app/.dockerignore .dockerignore
-
-gcloud builds submit --tag "$IMAGE_URI" --project "$GCP_PROJECT_ID" .
+gcloud builds submit \
+  --config app/cloudbuild.yaml \
+  --substitutions _IMAGE_URI="$IMAGE_URI" \
+  --project "$GCP_PROJECT_ID" \
+  .
 
 deploy_args=(
   --image "$IMAGE_URI"
