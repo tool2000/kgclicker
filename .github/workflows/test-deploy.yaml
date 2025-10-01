@@ -124,15 +124,49 @@ jobs:
           # Ensure no leftover files from previous attempts
           rm -f Dockerfile .dockerignore
           
-          # Submit build using cloudbuild.yaml
-          gcloud builds submit \
+          # Submit build asynchronously to avoid log streaming issues
+          echo "Submitting test build to Cloud Build..."
+          BUILD_ID=$(gcloud builds submit \
             --config app/cloudbuild.yaml \
             --substitutions _IMAGE_URI="$IMAGE_URI" \
             --project "${{ env.GCP_PROJECT_ID }}" \
-            --quiet \
-            .
+            --async \
+            --format="value(id)" \
+            .)
           
-          echo "✅ Test build completed successfully"
+          echo "Test build submitted with ID: $BUILD_ID"
+          echo "Build URL: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.GCP_PROJECT_ID }}"
+          
+          # Wait for build completion and check status
+          echo "Waiting for test build to complete..."
+          while true; do
+            BUILD_STATUS=$(gcloud builds describe "$BUILD_ID" \
+              --project "${{ env.GCP_PROJECT_ID }}" \
+              --format="value(status)")
+            
+            echo "Current build status: $BUILD_STATUS"
+            
+            case "$BUILD_STATUS" in
+              "SUCCESS")
+                echo "✅ Test build completed successfully!"
+                break
+                ;;
+              "FAILURE"|"CANCELLED"|"TIMEOUT"|"INTERNAL_ERROR")
+                echo "❌ Test build failed with status: $BUILD_STATUS"
+                echo "Check build logs at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.GCP_PROJECT_ID }}"
+                exit 1
+                ;;
+              "WORKING"|"QUEUED")
+                echo "Test build in progress... waiting 10 seconds"
+                sleep 10
+                ;;
+              *)
+                echo "Unknown build status: $BUILD_STATUS"
+                sleep 10
+                ;;
+            esac
+          done
+          
           echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
       
       - name: Build summary
