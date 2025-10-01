@@ -35,12 +35,47 @@
             grid-template-columns: 0px 1fr;
         }
 
+        .layout.sidebar-disabled {
+            grid-template-columns: 1fr;
+            width: 100%;
+        }
+
+        .layout.sidebar-disabled .main {
+            width: 100vw !important;
+        }
+
+        .layout.sidebar-disabled .tab-panel {
+            padding: 0 !important;
+            width: 100vw !important;
+        }
+
+        .layout.sidebar-disabled .network-panel {
+            width: 100vw !important;
+            height: 100vh !important;
+            border-radius: 0;
+            border: none;
+            max-width: none !important;
+        }
+
+        .layout.sidebar-disabled #networkCanvas {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: none !important;
+        }
+
+        /* Force canvas to take full iframe space */
+        canvas#networkCanvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
         .sidebar {
             background: #ffffff;
             border-right: 1px solid #e2e8f0;
             padding: 24px 24px 16px;
             overflow-y: auto;
             transition: width 0.3s ease, opacity 0.3s ease;
+            display: none; /* Hidden by default - controlled by main app */
         }
 
         .sidebar.collapsed {
@@ -158,6 +193,7 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            width: 100%;
         }
 
         .tab-bar {
@@ -197,6 +233,7 @@
             transition: all 0.2s ease;
             z-index: 10;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: none; /* Hidden when sidebar is disabled */
         }
 
         .sidebar-toggle:hover {
@@ -235,45 +272,16 @@
         #networkCanvas {
             width: 100%;
             height: 100%;
+            background: #ffffff;
+            border-radius: 16px;
         }
 
-        svg {
-            width: 100%;
-            height: 100%;
+        #networkCanvas {
+            cursor: grab;
         }
 
-        .node circle {
-            stroke: #0f172a;
-            stroke-width: 1.2px;
-            transition: stroke-width 0.2s ease, opacity 0.2s ease;
-        }
-
-        .node text {
-            font-size: 0.75rem;
-            text-anchor: middle;
-            fill: #0f172a;
-            pointer-events: none;
-        }
-
-        .link {
-            fill: none;
-            stroke-opacity: 0.55;
-            transition: stroke-opacity 0.2s ease;
-        }
-
-        .edge-label {
-            font-size: 0.7rem;
-            fill: #1e293b;
-            background: rgba(255, 255, 255, 0.75);
-            pointer-events: none;
-        }
-
-        .dimmed {
-            opacity: 0.15 !important;
-        }
-
-        .highlight {
-            opacity: 1 !important;
+        #networkCanvas:active {
+            cursor: grabbing;
         }
 
         .selection-card {
@@ -360,25 +368,62 @@
             border: 1px solid rgba(15, 23, 42, 0.25);
         }
 
-        @media (max-width: 1100px) {
-            .layout {
+
+        /* Mobile/narrow iframe handling - when sidebar is disabled, use full space */
+        @media (max-width: 800px) {
+            .layout:not(.sidebar-disabled) {
                 grid-template-columns: 1fr;
             }
 
-            .sidebar {
-                height: 320px;
+            .layout:not(.sidebar-disabled) .sidebar {
+                height: 280px;
                 border-right: none;
                 border-bottom: 1px solid #e2e8f0;
             }
 
-            .main {
-                height: calc(100vh - 320px);
+            .layout:not(.sidebar-disabled) .main {
+                height: calc(100vh - 280px);
+            }
+
+            /* When sidebar is disabled (iframe mode), ensure full viewport usage */
+            .layout.sidebar-disabled .main {
+                width: 100% !important;
+                height: 100vh !important;
+            }
+
+            .layout.sidebar-disabled .tab-panel {
+                padding: 0 !important;
+                width: 100% !important;
+                height: 100vh !important;
+            }
+
+            .layout.sidebar-disabled .network-panel {
+                width: 100% !important;
+                height: 100vh !important;
+                border-radius: 0 !important;
+                border: none !important;
+                max-width: none !important;
+            }
+
+            .layout.sidebar-disabled #networkCanvas {
+                width: 100% !important;
+                height: 100vh !important;
+                max-width: none !important;
+            }
+
+            /* Ensure iframe canvas takes full space on mobile */
+            canvas#networkCanvas {
+                width: 100% !important;
+                height: 100% !important;
+                min-width: 100% !important;
+                min-height: 100% !important;
             }
         }
     </style>
 </head>
 
 <body>
+
     <div class="layout">
         <aside class="sidebar">
             <h1>Knowledge Graph Explorer</h1>
@@ -410,17 +455,17 @@
         </aside>
         <main class="main">
             <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar"></button>
-            <div class="tab-bar" style="padding-bottom: 10px;">
+            <div class="tab-bar" style="padding-bottom: 10px; display: none;">
                 <button class="tab active" data-tab="network">Network</button>
-                <button class="tab" data-tab="relations">Relations</button>
-                <button class="tab" data-tab="insights">Insights</button>
+                <!-- <button class="tab" data-tab="relations">Relations</button>
+                <button class="tab" data-tab="insights">Insights</button> -->
             </div>
             <section id="network" class="tab-panel active">
                 <div class="network-panel">
-                    <div id="networkCanvas"></div>
+                    <canvas id="networkCanvas"></canvas>
                 </div>
             </section>
-            <section id="relations" class="tab-panel">
+            <!-- <section id="relations" class="tab-panel">
                 <div class="table-container">
                     <table>
                         <thead>
@@ -438,7 +483,7 @@
                 <div class="table-container" style="padding: 20px;">
                     <div id="insightsContent"></div>
                 </div>
-            </section>
+            </section> -->
         </main>
     </div>
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -447,15 +492,31 @@
     </script>
     <script>
         (function () {
+            console.log('[iframe] Script starting - mobile check:', window.innerWidth <= 768);
+            console.log('[iframe] User agent:', navigator.userAgent);
+
             const dataElement = document.getElementById('viz-data');
-            const vizData = JSON.parse(dataElement.textContent);
+            if (!dataElement) {
+                console.error('[iframe] viz-data element not found!');
+                return;
+            }
+
+            let vizData;
+            try {
+                vizData = JSON.parse(dataElement.textContent);
+                console.log('[iframe] Data parsed successfully:', vizData.nodes?.length, 'nodes');
+            } catch (e) {
+                console.error('[iframe] Failed to parse data:', e);
+                return;
+            }
 
             const state = {
                 activeElement: null,
                 focusCluster: null,
                 focusPredicate: null,
                 searchTerm: '',
-                sidebarCollapsed: false
+                sidebarCollapsed: false,
+                sidebarDisabled: false
             };
 
             const nodeById = Object.fromEntries(vizData.nodes.map(node => [node.id, node]));
@@ -551,69 +612,107 @@
                     .join('');
             }
 
-            function renderRelationsTable() {
-                const tbody = document.getElementById('relationsTable');
-                tbody.innerHTML = vizData.relations
-                    .map(rel => `
-                        <tr data-edge="${rel.edgeId}">
-                            <td>${rel.source}</td>
-                            <td><span class="pill" style="border: 1px solid ${rel.color}; background: ${rel.color}1a;">${rel.predicate}</span></td>
-                            <td>${rel.target}</td>
-                        </tr>
-                    `)
-                    .join('');
-            }
+            // function renderRelationsTable() {
+            //     const tbody = document.getElementById('relationsTable');
+            //     tbody.innerHTML = vizData.relations
+            //         .map(rel => `
+            //             <tr data-edge="${rel.edgeId}">
+            //                 <td>${rel.source}</td>
+            //                 <td><span class="pill" style="border: 1px solid ${rel.color}; background: ${rel.color}1a;">${rel.predicate}</span></td>
+            //                 <td>${rel.target}</td>
+            //             </tr>
+            //         `)
+            //         .join('');
+            // }
 
-            function renderInsights() {
-                const insights = document.getElementById('insightsContent');
-                const clusters = vizData.clusters
-                    .map(cluster => `
-                        <div class="list-item" style="border-left: 4px solid ${cluster.color};">
-                            <div>
-                                <strong>${cluster.label}</strong>
-                                <div class="meta">Members: ${cluster.members.join(', ')}</div>
-                            </div>
-                            <div>${cluster.size}</div>
-                        </div>
-                    `)
-                    .join('');
+            // function renderInsights() {
+            //     const insights = document.getElementById('insightsContent');
+            //     const clusters = vizData.clusters
+            //         .map(cluster => `
+            //             <div class="list-item" style="border-left: 4px solid ${cluster.color};">
+            //                 <div>
+            //                     <strong>${cluster.label}</strong>
+            //                     <div class="meta">Members: ${cluster.members.join(', ')}</div>
+            //                 </div>
+            //                 <div>${cluster.size}</div>
+            //             </div>
+            //         `)
+            //         .join('');
 
-                const components = vizData.components
-                    .map((component, index) => `
-                        <div class="list-item">
-                            <div>
-                                <strong>Component ${index + 1}</strong>
-                                <div class="meta">${component.members.join(', ')}</div>
-                            </div>
-                            <div>${component.size}</div>
-                        </div>
-                    `)
-                    .join('');
+            //     const components = vizData.components
+            //         .map((component, index) => `
+            //             <div class="list-item">
+            //                 <div>
+            //                     <strong>Component ${index + 1}</strong>
+            //                     <div class="meta">${component.members.join(', ')}</div>
+            //                 </div>
+            //                 <div>${component.size}</div>
+            //             </div>
+            //         `)
+            //         .join('');
 
-                const isolates = vizData.isolatedEntities.length
-                    ? vizData.isolatedEntities.join(', ')
-                    : 'None';
+            //     const isolates = vizData.isolatedEntities.length
+            //         ? vizData.isolatedEntities.join(', ')
+            //         : 'None';
 
-                insights.innerHTML = `
-                    <div class="section">
-                        <h2>Clusters</h2>
-                        <div class="list">${clusters || '<div class="meta">No clusters</div>'}</div>
-                    </div>
-                    <div class="section">
-                        <h2>Connected components</h2>
-                        <div class="list">${components || '<div class="meta">Single connected component</div>'}</div>
-                    </div>
-                    <div class="section">
-                        <h2>Isolated entities</h2>
-                        <div class="meta">${isolates}</div>
-                    </div>
-                `;
-            }
+            //     insights.innerHTML = `
+            //         <div class="section">
+            //             <h2>Clusters</h2>
+            //             <div class="list">${clusters || '<div class="meta">No clusters</div>'}</div>
+            //         </div>
+            //         <div class="section">
+            //             <h2>Connected components</h2>
+            //             <div class="list">${components || '<div class="meta">Single connected component</div>'}</div>
+            //         </div>
+            //         <div class="section">
+            //             <h2>Isolated entities</h2>
+            //             <div class="meta">${isolates}</div>
+            //         </div>
+            //     `;
+            // }
 
             function setActiveElement(element) {
                 state.activeElement = element;
                 renderSelectionDetails();
                 updateHighlights();
+
+                // Notify parent about selection change
+                if (window.parent !== window && state.sidebarDisabled) {
+                    const selection = element ? {
+                        type: element.type,
+                        id: element.id,
+                        ...getElementDetails(element)
+                    } : null;
+                    window.parent.postMessage({
+                        type: 'selectionChanged',
+                        selection: selection
+                    }, '*');
+                }
+            }
+
+            function getElementDetails(element) {
+                if (!element) return {};
+
+                if (element.type === 'node') {
+                    const node = nodeById[element.id];
+                    return {
+                        label: node.label,
+                        cluster: node.cluster,
+                        degree: node.degree,
+                        indegree: node.indegree,
+                        outdegree: node.outdegree,
+                        neighbors: node.neighbors
+                    };
+                } else if (element.type === 'edge') {
+                    const edge = edgeById[element.id];
+                    return {
+                        source: edge.source,
+                        target: edge.target,
+                        predicate: edge.predicate,
+                        cluster: edge.cluster
+                    };
+                }
+                return {};
             }
 
             function clearActiveElement() {
@@ -688,164 +787,333 @@
                 });
             }
 
-            let nodeSelection = null;
-            let linkSelection = null;
-            let labelSelection = null;
+            // Canvas-based network visualization
+            let canvas, ctx, transform, simulation;
+            let nodes, edges;
+            let highlightedNodes = new Set();
+            let highlightedEdges = new Set();
+            let isFiltering = false;
 
             function createNetwork() {
-                const container = document.getElementById('networkCanvas');
-                const width = container.clientWidth || container.getBoundingClientRect().width || 900;
-                const height = container.clientHeight || container.getBoundingClientRect().height || 680;
+                console.log('[iframe] createNetwork starting...');
 
-                const nodes = vizData.nodes.map(node => ({ ...node }));
-                const edges = vizData.edges.map(edge => ({ ...edge }));
+                if (typeof d3 === 'undefined') {
+                    console.error('[iframe] D3.js not loaded!');
+                    return;
+                }
+                console.log('[iframe] D3.js version:', d3.version);
 
-                const svg = d3
-                    .select(container)
-                    .append('svg')
-                    .attr('viewBox', [0, 0, width, height])
-                    .attr('width', width)
-                    .attr('height', height);
+                canvas = document.getElementById('networkCanvas');
+                if (!canvas) {
+                    console.error('[iframe] Canvas element not found!');
+                    return;
+                }
 
-                const zoomLayer = svg.append('g');
+                ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.error('[iframe] Canvas context not available!');
+                    return;
+                }
 
-                svg.call(
-                    d3
-                        .zoom()
-                        .extent([[0, 0], [width, height]])
-                        .scaleExtent([0.25, 3])
-                        .on('zoom', event => {
-                            zoomLayer.attr('transform', event.transform);
-                        })
-                );
+                // Force a layout recalculation to ensure proper sizing
+                canvas.offsetHeight; // Trigger reflow
 
-                const defs = svg.append('defs');
-                defs
-                    .append('marker')
-                    .attr('id', 'arrow')
-                    .attr('viewBox', '0 -5 10 10')
-                    .attr('refX', 24)
-                    .attr('refY', 0)
-                    .attr('markerWidth', 6)
-                    .attr('markerHeight', 6)
-                    .attr('orient', 'auto')
-                    .append('path')
-                    .attr('d', 'M0,-5L10,0L0,5')
-                    .attr('fill', '#94a3b8');
+                // Set canvas size with device pixel ratio for crisp rendering
+                const rect = canvas.getBoundingClientRect();
+                console.log('[iframe] Canvas rect:', rect.width, 'x', rect.height);
 
-                const linkGroup = zoomLayer.append('g').attr('class', 'links');
-                const nodeGroup = zoomLayer.append('g').attr('class', 'nodes');
-                const labelGroup = zoomLayer.append('g').attr('class', 'edge-labels');
+                // Ensure minimum size for mobile/narrow viewports
+                const width = Math.max(rect.width, 320);
+                const height = Math.max(rect.height, 200);
 
-                const simulation = d3
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
+
+                // Initialize transform for zooming/panning
+                transform = d3.zoomIdentity;
+
+                // Clone data for simulation
+                nodes = vizData.nodes.map(node => ({ ...node }));
+                edges = vizData.edges.map(edge => ({ ...edge }));
+
+                // Create D3 force simulation
+                simulation = d3
                     .forceSimulation(nodes)
-                    .force(
-                        'link',
-                        d3
-                            .forceLink(edges)
-                            .id(d => d.id)
-                            .distance(120)
-                            .strength(0.3)
-                    )
+                    .force('link', d3.forceLink(edges).id(d => d.id).distance(120).strength(0.3))
                     .force('charge', d3.forceManyBody().strength(-280))
                     .force('center', d3.forceCenter(width / 2, height / 2))
                     .force('collision', d3.forceCollide().radius(d => d.radius + 12));
 
-                const drag = d3
-                    .drag()
-                    .on('start', (event, d) => {
-                        if (!event.active) simulation.alphaTarget(0.3).restart();
-                        d.fx = d.x;
-                        d.fy = d.y;
-                    })
-                    .on('drag', (event, d) => {
-                        d.fx = event.x;
-                        d.fy = event.y;
-                    })
-                    .on('end', (event, d) => {
-                        if (!event.active) simulation.alphaTarget(0);
-                        d.fx = null;
-                        d.fy = null;
+                // Set up zoom behavior
+                const zoom = d3.zoom()
+                    .scaleExtent([0.25, 3])
+                    .on('zoom', (event) => {
+                        transform = event.transform;
+                        render();
                     });
 
-                linkSelection = linkGroup
-                    .selectAll('path')
-                    .data(edges, edge => edge.id)
-                    .join('path')
-                    .attr('class', 'link')
-                    .attr('stroke', edge => edge.color)
-                    .attr('stroke-width', 1.4)
-                    .attr('marker-end', 'url(#arrow)')
-                    .on('click', (event, edge) => {
-                        event.stopPropagation();
+                d3.select(canvas).call(zoom);
+
+                // Mouse interaction handling
+                let draggedNode = null;
+                let mouseX, mouseY;
+
+                function getMousePos(event) {
+                    const rect = canvas.getBoundingClientRect();
+                    return {
+                        x: (event.clientX - rect.left - transform.x) / transform.k,
+                        y: (event.clientY - rect.top - transform.y) / transform.k
+                    };
+                }
+
+                function findNode(x, y) {
+                    for (let i = nodes.length - 1; i >= 0; i--) {
+                        const node = nodes[i];
+                        const dx = x - node.x;
+                        const dy = y - node.y;
+                        if (dx * dx + dy * dy < node.radius * node.radius) {
+                            return node;
+                        }
+                    }
+                    return null;
+                }
+
+                function findEdge(x, y) {
+                    for (let i = edges.length - 1; i >= 0; i--) {
+                        const edge = edges[i];
+                        if (!edge.source || !edge.target) continue;
+
+                        // Check if click is near the edge line
+                        const dx = edge.target.x - edge.source.x;
+                        const dy = edge.target.y - edge.source.y;
+                        const length = Math.sqrt(dx * dx + dy * dy);
+                        if (length === 0) continue;
+
+                        const dot = ((x - edge.source.x) * dx + (y - edge.source.y) * dy) / (length * length);
+                        if (dot < 0 || dot > 1) continue;
+
+                        const projX = edge.source.x + dot * dx;
+                        const projY = edge.source.y + dot * dy;
+                        const distSq = (x - projX) * (x - projX) + (y - projY) * (y - projY);
+
+                        if (distSq < 25) { // 5px threshold
+                            return edge;
+                        }
+                    }
+                    return null;
+                }
+
+                canvas.addEventListener('mousedown', (event) => {
+                    const pos = getMousePos(event);
+                    mouseX = pos.x;
+                    mouseY = pos.y;
+                    draggedNode = findNode(pos.x, pos.y);
+
+                    if (draggedNode) {
+                        simulation.alphaTarget(0.3).restart();
+                        draggedNode.fx = draggedNode.x;
+                        draggedNode.fy = draggedNode.y;
+                        canvas.style.cursor = 'grabbing';
+                    }
+                });
+
+                canvas.addEventListener('mousemove', (event) => {
+                    const pos = getMousePos(event);
+
+                    if (draggedNode) {
+                        draggedNode.fx = pos.x;
+                        draggedNode.fy = pos.y;
+                    } else {
+                        // Update cursor based on what's under mouse
+                        const node = findNode(pos.x, pos.y);
+                        const edge = findEdge(pos.x, pos.y);
+                        canvas.style.cursor = (node || edge) ? 'pointer' : 'grab';
+                    }
+                });
+
+                canvas.addEventListener('mouseup', (event) => {
+                    if (draggedNode) {
+                        simulation.alphaTarget(0);
+                        draggedNode.fx = null;
+                        draggedNode.fy = null;
+                        draggedNode = null;
+                        canvas.style.cursor = 'grab';
+                    }
+                });
+
+                canvas.addEventListener('click', (event) => {
+                    const pos = getMousePos(event);
+                    const node = findNode(pos.x, pos.y);
+                    const edge = findEdge(pos.x, pos.y);
+
+                    if (node) {
+                        setActiveElement({ type: 'node', id: node.id });
+                    } else if (edge) {
                         setActiveElement({ type: 'edge', id: edge.id });
-                    });
-
-                labelSelection = labelGroup
-                    .selectAll('text')
-                    .data(edges, edge => edge.id)
-                    .join('text')
-                    .attr('class', 'edge-label')
-                    .text(edge => edge.predicate);
-
-                nodeSelection = nodeGroup
-                    .selectAll('g')
-                    .data(nodes, node => node.id)
-                    .join(enter => {
-                        const node = enter.append('g').attr('class', 'node').call(drag);
-                        node
-                            .append('circle')
-                            .attr('r', d => d.radius)
-                            .attr('fill', d => d.color);
-                        node
-                            .append('text')
-                            .attr('dy', d => d.radius + 14)
-                            .text(d => d.label);
-                        node.on('click', (event, d) => {
-                            event.stopPropagation();
-                            setActiveElement({ type: 'node', id: d.id });
-                        });
-                        return node;
-                    });
-
-                svg.on('click', () => {
-                    clearActiveElement();
+                    } else {
+                        clearActiveElement();
+                    }
                 });
 
+                // Animation loop
                 simulation.on('tick', () => {
-                    nodeSelection.attr('transform', d => `translate(${d.x}, ${d.y})`);
-
-                    linkSelection.attr('d', edge => {
-                        const source = edge.source;
-                        const target = edge.target;
-                        const dx = target.x - source.x;
-                        const dy = target.y - source.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-                        const normX = dx / distance;
-                        const normY = dy / distance;
-                        const sourcePadding = source.radius + 2;
-                        const targetPadding = target.radius + 8;
-                        const sourceX = source.x + normX * sourcePadding;
-                        const sourceY = source.y + normY * sourcePadding;
-                        const targetX = target.x - normX * targetPadding;
-                        const targetY = target.y - normY * targetPadding;
-                        return `M${sourceX},${sourceY} L${targetX},${targetY}`;
-                    });
-
-                    labelSelection
-                        .attr('x', edge => (edge.source.x + edge.target.x) / 2)
-                        .attr('y', edge => (edge.source.y + edge.target.y) / 2);
+                    render();
                 });
+
+                // Handle window resize
+                window.addEventListener('resize', resizeCanvas);
+
+                render();
+            }
+
+            function resizeCanvas() {
+                if (!canvas || !ctx) return;
+
+                // Force canvas to take full container size
+                if (state.sidebarDisabled) {
+                    canvas.style.width = '100%';
+                    canvas.style.height = '100%';
+                }
+
+                const rect = canvas.getBoundingClientRect();
+                console.log('Canvas resize - rect:', rect.width, 'x', rect.height);
+
+                // Ensure minimum size for mobile
+                const width = Math.max(rect.width, 320);
+                const height = Math.max(rect.height, 200);
+
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
+
+                // Update simulation center
+                if (simulation) {
+                    simulation.force('center', d3.forceCenter(width / 2, height / 2));
+                    simulation.alpha(0.3).restart();
+                }
+
+                render();
+            }
+
+
+            function render() {
+                if (!ctx || !canvas) return;
+
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width / (window.devicePixelRatio || 1),
+                             canvas.height / (window.devicePixelRatio || 1));
+
+                // Apply transform
+                ctx.save();
+                ctx.translate(transform.x, transform.y);
+                ctx.scale(transform.k, transform.k);
+
+                // Set text properties
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = '12px Inter, system-ui, sans-serif';
+
+                // Draw edges first
+                edges.forEach(edge => {
+                    if (!edge.source || !edge.target) return;
+
+                    const isHighlighted = highlightedEdges.has(edge.id);
+                    const isDimmed = isFiltering && !isHighlighted;
+
+                    // Calculate edge endpoints accounting for node radius
+                    const dx = edge.target.x - edge.source.x;
+                    const dy = edge.target.y - edge.source.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+                    const normX = dx / distance;
+                    const normY = dy / distance;
+
+                    const sourcePadding = edge.source.radius + 2;
+                    const targetPadding = edge.target.radius + 8;
+                    const sourceX = edge.source.x + normX * sourcePadding;
+                    const sourceY = edge.source.y + normY * sourcePadding;
+                    const targetX = edge.target.x - normX * targetPadding;
+                    const targetY = edge.target.y - normY * targetPadding;
+
+                    // Draw edge line
+                    ctx.strokeStyle = edge.color;
+                    ctx.globalAlpha = isDimmed ? 0.15 : (isHighlighted ? 1.0 : 0.55);
+                    ctx.lineWidth = 1.4;
+                    ctx.beginPath();
+                    ctx.moveTo(sourceX, sourceY);
+                    ctx.lineTo(targetX, targetY);
+                    ctx.stroke();
+
+                    // Draw arrowhead
+                    const arrowLength = 10;
+                    const arrowWidth = 5;
+                    const angle = Math.atan2(dy, dx);
+
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.beginPath();
+                    ctx.moveTo(targetX, targetY);
+                    ctx.lineTo(
+                        targetX - arrowLength * Math.cos(angle - arrowWidth * Math.PI / 180),
+                        targetY - arrowLength * Math.sin(angle - arrowWidth * Math.PI / 180)
+                    );
+                    ctx.lineTo(
+                        targetX - arrowLength * Math.cos(angle + arrowWidth * Math.PI / 180),
+                        targetY - arrowLength * Math.sin(angle + arrowWidth * Math.PI / 180)
+                    );
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Draw edge label if zoom level is appropriate
+                    if (transform.k > 0.8) {
+                        const labelX = (sourceX + targetX) / 2;
+                        const labelY = (sourceY + targetY) / 2;
+
+                        ctx.fillStyle = isDimmed ? 'rgba(30, 41, 59, 0.15)' : 'rgba(30, 41, 59, 0.8)';
+                        ctx.font = '10px Inter, system-ui, sans-serif';
+                        ctx.fillText(edge.predicate, labelX, labelY);
+                    }
+                });
+
+                // Draw nodes
+                nodes.forEach(node => {
+                    const isHighlighted = highlightedNodes.has(node.id);
+                    const isDimmed = isFiltering && !isHighlighted;
+
+                    // Draw node circle
+                    ctx.fillStyle = node.color;
+                    ctx.globalAlpha = isDimmed ? 0.15 : 1.0;
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    // Draw node border
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = isHighlighted ? 2.4 : 1.2;
+                    ctx.stroke();
+
+                    // Draw node label
+                    if (transform.k > 0.5) {
+                        ctx.fillStyle = isDimmed ? 'rgba(15, 23, 42, 0.15)' : '#0f172a';
+                        ctx.font = '12px Inter, system-ui, sans-serif';
+                        ctx.fillText(node.label, node.x, node.y + node.radius + 14);
+                    }
+                });
+
+                ctx.restore();
+                ctx.globalAlpha = 1.0;
             }
 
             function updateHighlights() {
-                if (!nodeSelection || !linkSelection) {
-                    return;
-                }
-
-                const highlightedNodes = new Set();
-                const highlightedEdges = new Set();
-                let isFiltering = false;
+                // Clear previous highlights
+                highlightedNodes.clear();
+                highlightedEdges.clear();
+                isFiltering = false;
 
                 const addNode = id => {
                     if (id) {
@@ -915,19 +1183,13 @@
                     });
                 }
 
-                nodeSelection.classed('highlight', node => highlightedNodes.has(node.id));
-                nodeSelection.classed('dimmed', node => isFiltering && !highlightedNodes.has(node.id));
-
-                linkSelection.classed('highlight', edge => highlightedEdges.has(edge.id));
-                linkSelection.classed('dimmed', edge => isFiltering && !highlightedEdges.has(edge.id));
-
-                if (labelSelection) {
-                    labelSelection.classed('highlight', edge => highlightedEdges.has(edge.id));
-                    labelSelection.classed('dimmed', edge => isFiltering && !highlightedEdges.has(edge.id));
-                }
+                // Trigger re-render with updated highlights
+                render();
             }
 
             function toggleSidebar() {
+                if (state.sidebarDisabled) return;
+
                 state.sidebarCollapsed = !state.sidebarCollapsed;
                 const layout = document.querySelector('.layout');
                 const sidebar = document.querySelector('.sidebar');
@@ -937,17 +1199,65 @@
                 sidebar.classList.toggle('collapsed', state.sidebarCollapsed);
                 toggleButton.classList.toggle('collapsed', state.sidebarCollapsed);
 
-                // Update network visualization size when sidebar toggles
+                // Trigger canvas resize when sidebar toggles
                 setTimeout(() => {
-                    const networkCanvas = document.getElementById('networkCanvas');
-                    if (networkCanvas && networkCanvas.firstChild) {
-                        const svg = networkCanvas.querySelector('svg');
-                        if (svg) {
-                            const rect = networkCanvas.getBoundingClientRect();
-                            svg.attr('width', rect.width).attr('height', rect.height);
-                        }
-                    }
+                    resizeCanvas();
                 }, 300); // Wait for transition to complete
+            }
+
+            function disableSidebar() {
+                state.sidebarDisabled = true;
+
+                const layout = document.querySelector('.layout');
+                const sidebar = document.querySelector('.sidebar');
+                const toggleButton = document.getElementById('sidebarToggle');
+                const main = document.querySelector('.main');
+                const tabPanel = document.querySelector('.tab-panel');
+                const networkPanel = document.querySelector('.network-panel');
+
+                layout.classList.add('sidebar-disabled');
+                sidebar.style.display = 'none';
+                toggleButton.style.display = 'none';
+
+                // Force styles directly for iframe context
+                main.style.width = '100%';
+                main.style.height = '100vh';
+                tabPanel.style.padding = '0';
+                tabPanel.style.width = '100%';
+                tabPanel.style.height = '100vh';
+                networkPanel.style.width = '100%';
+                networkPanel.style.height = '100vh';
+                networkPanel.style.borderRadius = '0';
+                networkPanel.style.border = 'none';
+
+                console.log('Sidebar disabled, forcing full width styles');
+
+                // Multiple resize attempts with forced reflow
+                setTimeout(() => {
+                    canvas.offsetHeight; // Trigger reflow
+                    console.log('First resize attempt after 200ms');
+                    resizeCanvas();
+                }, 200);
+
+                setTimeout(() => {
+                    canvas.offsetHeight; // Trigger reflow
+                    console.log('Second resize attempt after 500ms');
+                    resizeCanvas();
+                }, 500);
+
+                setTimeout(() => {
+                    canvas.offsetHeight; // Trigger reflow
+                    console.log('Final resize attempt after 800ms');
+                    resizeCanvas();
+                }, 800);
+
+                // Notify parent about graph data
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'graphDataReady',
+                        data: vizData
+                    }, '*');
+                }
             }
 
             function bindInteractions() {
@@ -959,21 +1269,29 @@
                     item.addEventListener('click', () => togglePredicateFocus(item.getAttribute('data-predicate')));
                 });
 
-                document.getElementById('relationsTable').addEventListener('click', event => {
-                    const row = event.target.closest('tr');
-                    if (!row) {
-                        return;
-                    }
-                    const edgeId = row.getAttribute('data-edge');
-                    if (edgeId) {
-                        setActiveElement({ type: 'edge', id: edgeId });
-                    }
-                });
+                // document.getElementById('relationsTable').addEventListener('click', event => {
+                //     const row = event.target.closest('tr');
+                //     if (!row) {
+                //         return;
+                //     }
+                //     const edgeId = row.getAttribute('data-edge');
+                //     if (edgeId) {
+                //         setActiveElement({ type: 'edge', id: edgeId });
+                //     }
+                // });
 
                 const searchInput = document.getElementById('searchInput');
                 searchInput.addEventListener('input', () => {
                     state.searchTerm = searchInput.value.trim();
                     updateHighlights();
+
+                    // Notify parent about search change
+                    if (window.parent !== window && state.sidebarDisabled) {
+                        window.parent.postMessage({
+                            type: 'searchChanged',
+                            searchTerm: state.searchTerm
+                        }, '*');
+                    }
                 });
                 searchInput.addEventListener('keydown', event => {
                     if (event.key === 'Escape') {
@@ -996,15 +1314,34 @@
                 });
 
                 document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+
+                // Listen for messages from parent
+                window.addEventListener('message', (event) => {
+                    if (event.data.type === 'disableInternalSidebar') {
+                        disableSidebar();
+                    } else if (event.data.type === 'search') {
+                        state.searchTerm = event.data.term || '';
+                        updateHighlights();
+                    } else if (event.data.type === 'focusCluster') {
+                        toggleClusterFocus(event.data.clusterId);
+                    } else if (event.data.type === 'focusPredicate') {
+                        togglePredicateFocus(event.data.predicate);
+                    }
+                });
+
             }
 
             renderStats();
             renderTopLists();
             renderClusters();
-            renderRelationsTable();
-            renderInsights();
-            createNetwork();
-            bindInteractions();
+            // renderRelationsTable();
+            // renderInsights();
+
+            // Delay network creation to ensure proper layout
+            setTimeout(() => {
+                createNetwork();
+                bindInteractions();
+            }, 100);
         })();
     </script>
 </body>

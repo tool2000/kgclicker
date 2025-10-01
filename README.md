@@ -1,5 +1,9 @@
 # kg-gen: Knowledge Graph Generation from Any Text
 
+📄 [**Paper**](https://arxiv.org/abs/2502.09956) | 🐍 [**Package**](https://pypi.org/project/kg-gen/) | 🤖 [**MCP**](mcp/) | 🔬 [**Experiments**](experiments/)
+
+> 💡New! Try KGGen's [MCP Server](#mcp-server-for-ai-agents) to give your agent knowledge graph memory
+
 Welcome! `kg-gen` helps you extract knowledge graphs from any plain text using AI. It can process both small and large text inputs, and it can also handle messages in a conversation format.
 
 Why generate knowledge graphs? `kg-gen` is great if you want to:
@@ -11,7 +15,7 @@ Why generate knowledge graphs? `kg-gen` is great if you want to:
 We support API-based and local model providers via [LiteLLM](https://docs.litellm.ai/docs/providers), including OpenAI, Ollama, Anthropic, Gemini, Deepseek, and others. We also use [DSPy](https://dspy.ai/) for structured output generation.
 
 - Try it out by running the scripts in [`tests/`](https://github.com/stair-lab/kg-gen/tree/main/tests).
-- Instructions to run our KG benchmark MINE are in [`MINE/`](https://github.com/stair-lab/kg-gen/tree/main/MINE).
+- Instructions to run our KG benchmark MINE are in [`MINE/`](https://github.com/stair-lab/kg-gen/tree/main/experiments/MINE).
 - Read the paper: [KGGen: Extracting Knowledge Graphs from Plain Text with Language Models](https://arxiv.org/abs/2502.09956)
 
 ## Powered by a model of your choice
@@ -19,8 +23,8 @@ We support API-based and local model providers via [LiteLLM](https://docs.litell
 Pass in a `model` string to use a model of your choice. Model calls are routed via LiteLLM, and usually LiteLLM goes by the format of `{model_provider}/{model_name}`. See specifically how to format it at [https://docs.litellm.ai/docs/providers](https://docs.litellm.ai/docs/providers).
 
 Examples of models you can pass in:
-- `openai/gpt-4o`
-- `gemini/gemini-2.0-flash`
+- `openai/gpt-5`
+- `gemini/gemini-2.5-flash`
 - `ollama_chat/deepseek-r1:14b`
 
 You may specify a custom API base url with `base_url` ([example here](tests/test_custom_api_base.py)).
@@ -61,7 +65,7 @@ graph_1 = kg.generate(
 #           ('Linda', 'is mother of', 'Josh')}
 ```
 
-### Visualizing KG's
+### Visualizing KGs
 ```python
 KGGen.visualize(graph, output_path, open_in_browser=True)
 ```
@@ -160,6 +164,21 @@ Clone this repository and install dependencies using `pip install -e '.[dev]'`.
 
 You may verify that it works by running `python tests/test_basic.py` from the root directory. This will also generate a nice visualization in `tests/test_basic.html`.
 
+### MCP Server for AI Agents
+
+For AI agents that need persistent memory capabilities:
+
+```bash
+# Install and start MCP server
+pip install kg-gen
+kggen mcp
+
+# Use with Claude Desktop, custom MCP clients, or other AI applications
+```
+
+See the [MCP Server documentation](mcp/) for detailed setup and integration instructions.
+
+
 ## Features
 
 ### Chunking Large Texts
@@ -224,34 +243,6 @@ And relations like:
 - (assistant, "states", "Paris")
 - (Paris, "is capital of", "France")
 
-## API Reference
-
-### KGGen Class
-
-#### Constructor Parameters
-- `model`: str = "openai/gpt-4o" - The model to use for generation
-- `temperature`: float = 0.0 - Temperature for model sampling
-- `api_key`: Optional[str] = None - API key for model access
-
-#### generate() Method Parameters
-- `input_data`: Union[str, List[Dict]] - Text string or list of message dicts
-- `model`: Optional[str] - Override the default model
-- `api_key`: Optional[str] - Override the default API key
-- `context`: str = "" - Description of data context
-- `chunk_size`: Optional[int] - Size of text chunks to process
-- `cluster`: bool = False - Whether to cluster the graph after generation
-- `temperature`: Optional[float] - Override the default temperature
-- `output_folder`: Optional[str] - Path to save partial progress
-
-#### cluster() Method Parameters
-- `graph`: Graph - The graph to cluster
-- `context`: str = "" - Description of data context
-- `model`: Optional[str] - Override the default model
-- `temperature`: Optional[float] - Override the default temperature
-- `api_key`: Optional[str] - Override the default API key
-
-#### aggregate() Method Parameters
-- `graphs`: List[Graph] - List of graphs to combine
 
 ## License
 The MIT License.

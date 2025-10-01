@@ -15,18 +15,11 @@ printf "[deploy] Building and pushing image %s\n" "$IMAGE_URI"
 # Change to project root for build context
 cd "$(dirname "$0")/.."
 
-# Ensure Dockerfile exists
-if [[ ! -f "app/Dockerfile" ]]; then
-  echo "ERROR: app/Dockerfile not found!"
-  exit 1
-fi
-
-# Copy Dockerfile to root for Cloud Build (most reliable approach)
-cp app/Dockerfile Dockerfile
-cp app/.dockerignore .dockerignore 2>/dev/null || true
-
-# Submit build with Dockerfile at root
-gcloud builds submit --tag "$IMAGE_URI" --project "$GCP_PROJECT_ID" .
+gcloud builds submit \
+  --config app/cloudbuild.yaml \
+  --substitutions _IMAGE_URI="$IMAGE_URI" \
+  --project "$GCP_PROJECT_ID" \
+  .
 
 # Clean up
 rm -f Dockerfile .dockerignore

@@ -6,20 +6,102 @@
             box-sizing: border-box;
         }
 
+        #networkCanvas svg {
+            width: 100%;
+            height: 100%;
+        }
+
         body {
             margin: 0;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0f172a;
+            background: #ffffff;
             color: #0f172a;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
             display: flex;
+            flex-direction: column;
             align-items: stretch;
+        }
+
+        /* Mobile Top Bar */
+        .mobile-top-bar {
+            display: none;
+            align-items: center;
+            padding: 12px 16px;
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            position: relative;
+            z-index: 1001;
+        }
+
+        .mobile-menu-button {
+            background: none;
+            border: none;
+            padding: 6px;
+            margin-right: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            transition: background-color 0.2s ease;
+        }
+
+        .mobile-menu-button:hover {
+            background-color: #f1f5f9;
+        }
+
+        .mobile-menu-button:active {
+            background-color: #e2e8f0;
+        }
+
+        .hamburger-icon {
+            position: relative;
+            width: 24px;
+            height: 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .hamburger-line {
+            width: 100%;
+            height: 3px;
+            background-color: #475569;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+            transform-origin: center;
+        }
+
+        .mobile-menu-button.active .hamburger-line:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .mobile-menu-button.active .hamburger-line:nth-child(2) {
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        .mobile-menu-button.active .hamburger-line:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        .mobile-app-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0;
         }
 
         .layout {
             display: grid;
             grid-template-columns: 420px minmax(0, 1fr);
             width: 100%;
+            height: 100vh;
+            transition: grid-template-columns 0.3s ease;
+            position: relative;
         }
 
         main {
@@ -30,7 +112,11 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
-            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+            border-right: 1px solid rgba(15, 23, 42, 0.06);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+            height: 100%;
         }
 
         h1 {
@@ -40,6 +126,7 @@
             color: #0f172a;
         }
 
+
         p.description {
             margin: 0;
             color: #475569;
@@ -47,13 +134,14 @@
         }
 
         .card {
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(15, 23, 42, 0.08);
             border-radius: 16px;
             padding: 20px 18px 24px;
             display: flex;
             flex-direction: column;
             gap: 16px;
-            background: #f8fafc;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
         }
 
         .card h2 {
@@ -94,6 +182,19 @@
             font-family: inherit;
             color: #0f172a;
             background: #ffffff;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:disabled,
+        input[type="password"]:disabled,
+        input[type="number"]:disabled,
+        input[type="file"]:disabled,
+        select:disabled,
+        textarea:disabled {
+            background: #f1f5f9;
+            color: #94a3b8;
+            border-color: #e2e8f0;
+            cursor: not-allowed;
         }
 
         textarea {
@@ -203,29 +304,10 @@
             transform: translateY(-1px);
         }
 
-        .status {
-            font-size: 0.9rem;
-            padding: 12px 14px;
-            border-radius: 12px;
-            background: #f1f5f9;
-            color: #1e293b;
-            min-height: 48px;
-        }
-
-        .status.error {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .status.success {
-            background: #dcfce7;
-            color: #166534;
-        }
-
         .viewer-wrapper {
             flex: 1;
             width: 100%;
-            background: #0f172a;
+            background: #ffffff;
             display: flex;
             align-items: stretch;
             justify-content: flex-start;
@@ -233,25 +315,34 @@
             position: relative;
         }
 
+        .viewer-wrapper.graph-loaded {
+            background: #ffffff;
+            padding: 5px;
+        }
+
         iframe {
             width: 100%;
             height: 100%;
             border: none;
             border-radius: 18px;
-            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
             background: #ffffff;
             flex: 1 1 auto;
+            display: block;
+        }
+
+        iframe[hidden] {
+            display: none !important;
         }
 
         .placeholder {
             position: absolute;
             inset: 24px;
-            border: 2px dashed rgba(255, 255, 255, 0.25);
+            border: 2px dashed rgba(0, 0, 0, 0.25);
             border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: rgba(255, 255, 255, 0.75);
+            color: rgba(0, 0, 0, 0.75);
             font-size: 1rem;
             text-align: center;
             padding: 40px;
@@ -279,7 +370,128 @@
             color: #64748b;
         }
 
-        @media (max-width: 1100px) {
+        .input-hint {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .input-hint.show {
+            display: block;
+        }
+
+        .secondary.active {
+            background: #16a34a;
+            color: #ffffff;
+        }
+
+        .secondary.active:hover {
+            background: #15803d;
+            transform: translateY(-1px);
+        }
+
+
+        /* Mobile Responsive Layout */
+        @media (max-width: 768px) {
+            .mobile-top-bar {
+                display: flex;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                position: relative;
+                width: 100vw !important;
+                overflow-x: hidden;
+            }
+
+            main {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                max-width: none;
+                height: 100vh;
+                z-index: 1000;
+                box-shadow: 2px 0 20px rgba(15, 23, 42, 0.25);
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                padding-top: 60px; /* Account for mobile top bar */
+            }
+
+            main.mobile-open {
+                transform: translateX(0);
+            }
+
+            /* Hide desktop toggle button on mobile */
+            .sidebar-toggle {
+                display: none;
+            }
+
+            .viewer-wrapper {
+                position: fixed !important;
+                top: 60px !important; /* Below mobile top bar */
+                left: 0 !important;
+                width: 100vw !important; /* Force full viewport width */
+                height: calc(100vh - 60px) !important; /* Account for mobile top bar */
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                z-index: 1;
+                background: #ffffff;
+            }
+
+            .placeholder {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: calc(100% - 32px);
+                max-width: 300px;
+                border: 2px dashed rgba(0, 0, 0, 0.25);
+                border-radius: 20px;
+                padding: 40px 20px;
+                text-align: center;
+                color: rgba(0, 0, 0, 0.75);
+                font-size: 1rem;
+                pointer-events: auto;
+                cursor: pointer;
+            }
+
+            .floating-actions {
+                position: static;
+                justify-content: flex-end;
+                margin: 12px 0 0 0;
+                flex-shrink: 0;
+            }
+
+            iframe {
+                width: 100%;
+                height: 100%;
+                border: none;
+                border-radius: 12px;
+                background: #ffffff;
+                flex: 1 1 auto;
+                min-height: 200px;
+                display: block;
+            }
+
+            iframe[hidden] {
+                display: none !important;
+            }
+
+            .viewer-wrapper.graph-loaded {
+                height: calc(100vh - 60px); /* Maintain mobile height when graph is loaded */
+                padding: 8px;
+                width: 100vw !important; /* Force full viewport width */
+                max-width: none !important;
+            }
+        }
+
+        /* Tablet breakpoint - keeps desktop layout but adjusts spacing */
+        @media (max-width: 1100px) and (min-width: 769px) {
             body {
                 flex-direction: column;
                 background: #ffffff;
@@ -298,10 +510,22 @@
             .viewer-wrapper {
                 padding: 16px;
                 min-height: 60vh;
+                position: relative;
             }
 
             .placeholder {
-                inset: 16px;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: calc(100% - 32px);
+                max-width: 350px;
+                border: 2px dashed rgba(0, 0, 0, 0.25);
+                border-radius: 20px;
+                padding: 40px 20px;
+                text-align: center;
+                color: rgba(0, 0, 0, 0.75);
+                font-size: 1rem;
             }
 
             .floating-actions {
