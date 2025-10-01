@@ -25,13 +25,10 @@ env:
   ARTIFACT_REGISTRY_LOCATION: us-central1
 
 jobs:
-  test-deploy:
-    name: Test Deploy (${{ inputs.mode }})
+  dry-run:
+    name: Dry Run Test
     runs-on: ubuntu-latest
-    
-    permissions:
-      contents: read
-      id-token: write
+    if: ${{ inputs.mode == 'dry-run' }}
     
     steps:
       - name: Checkout repository
@@ -39,17 +36,7 @@ jobs:
         with:
           fetch-depth: 0
       
-      - name: Set project ID based on mode
-        run: |
-          if [[ "${{ inputs.mode }}" == "test-deploy" ]]; then
-            echo "GCP_PROJECT_ID=${{ inputs.test_project_id }}" >> $GITHUB_ENV
-          else
-            echo "GCP_PROJECT_ID=kggen-ai" >> $GITHUB_ENV
-          fi
-      
-      # DRY RUN MODE
       - name: Test deploy script (dry run)
-        if: ${{ inputs.mode == 'dry-run' }}
         env:
           CLOUD_RUN_MAX_INSTANCES: ${{ vars.CLOUD_RUN_MAX_INSTANCES }}
           CLOUD_RUN_MIN_INSTANCES: ${{ vars.CLOUD_RUN_MIN_INSTANCES }}
@@ -62,7 +49,6 @@ jobs:
           ./app/deploy-test.sh
       
       - name: Validate Dockerfile
-        if: ${{ inputs.mode == 'dry-run' }}
         run: |
           if [[ ! -f "app/Dockerfile" ]]; then
             echo "❌ Dockerfile not found"
@@ -70,69 +56,232 @@ jobs:
           fi
           echo "✅ Dockerfile validation passed"
       
-      # TEST DEPLOY MODE
-      - name: Authenticate to Google Cloud (test deploy)
-        if: ${{ inputs.mode == 'test-deploy' }}
+      - name: Test summary
+        run: |
+          echo "## 🧪 Test Deploy Summary (Dry Run)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Dry run completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** $CLOUD_RUN_SERVICE" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The real deployment workflow should work correctly!" >> $GITHUB_STEP_SUMMARY
+  
+  build:
+    name: Build Test Image
+    runs-on: ubuntu-latest
+    if: ${{ inputs.mode == 'test-deploy' }}
+    
+    permissions:
+      contents: read
+      id-token: write
+    
+    outputs:
+      image-uri: ${{ steps.build.outputs.image-uri }}
+      project-id: ${{ steps.project.outputs.project-id }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set project ID
+        id: project
+        run: |
+          GCP_PROJECT_ID="${{ inputs.test_project_id }}"
+          echo "GCP_PROJECT_ID=${GCP_PROJECT_ID}" >> $GITHUB_ENV
+          echo "project-id=${GCP_PROJECT_ID}" >> $GITHUB_OUTPUT
+      
+      - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
       
-      - name: Set up Cloud SDK (test deploy)
-        if: ${{ inputs.mode == 'test-deploy' }}
+      - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: 'latest'
       
-      - name: Configure Docker for Artifact Registry (test deploy)
-        if: ${{ inputs.mode == 'test-deploy' }}
+      - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev
       
-      - name: Deploy to test environment
-        if: ${{ inputs.mode == 'test-deploy' }}
-        env:
-          CLOUD_RUN_MAX_INSTANCES: ${{ vars.CLOUD_RUN_MAX_INSTANCES }}
-          CLOUD_RUN_MIN_INSTANCES: ${{ vars.CLOUD_RUN_MIN_INSTANCES }}
-          CLOUD_RUN_CPU: ${{ vars.CLOUD_RUN_CPU }}
-          CLOUD_RUN_MEMORY: ${{ vars.CLOUD_RUN_MEMORY }}
-          CLOUD_RUN_CONCURRENCY: ${{ vars.CLOUD_RUN_CONCURRENCY }}
-          CLOUD_RUN_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_SERVICE_ACCOUNT }}
-          GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
-          CLOUD_RUN_SERVICE: ${{ env.CLOUD_RUN_SERVICE }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+      - name: Generate image tag
+        id: image-tag
         run: |
-          chmod +x app/deploy.sh
-          ./app/deploy.sh
+          IMAGE_TAG=$(git rev-parse --short HEAD)
+          IMAGE_URI="${{ env.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
+          echo "image-tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
       
-      - name: Get Service URL (test deploy)
-        if: ${{ inputs.mode == 'test-deploy' }}
+      - name: Build and push test image using Cloud Build
+        id: build
         run: |
-          SERVICE_URL=$(gcloud run services describe $CLOUD_RUN_SERVICE \
-            --region="$CLOUD_RUN_REGION" \
+          echo "📦 Building test image: $IMAGE_URI"
+          
+          # Ensure no leftover files from previous attempts
+          rm -f Dockerfile .dockerignore
+          
+          # Submit build using cloudbuild.yaml
+          gcloud builds submit \
+            --config app/cloudbuild.yaml \
+            --substitutions _IMAGE_URI="$IMAGE_URI" \
+            --project "${{ env.GCP_PROJECT_ID }}" \
+            --quiet \
+            .
+          
+          echo "✅ Test build completed successfully"
+          echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+      
+      - name: Build summary
+        run: |
+          echo "## 🏗️ Test Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`$IMAGE_URI\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** \`$IMAGE_TAG\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Project:** ${{ env.GCP_PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`${{ env.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev\`" >> $GITHUB_STEP_SUMMARY
+
+  deploy:
+    name: Deploy Test Service
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ inputs.mode == 'test-deploy' }}
+    
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+      
+      - name: Deploy to test environment
+        env:
+          CLOUD_RUN_MAX_INSTANCES: ${{ vars.CLOUD_RUN_MAX_INSTANCES || '10' }}
+          CLOUD_RUN_MIN_INSTANCES: ${{ vars.CLOUD_RUN_MIN_INSTANCES || '0' }}
+          CLOUD_RUN_CPU: ${{ vars.CLOUD_RUN_CPU || '4' }}
+          CLOUD_RUN_MEMORY: ${{ vars.CLOUD_RUN_MEMORY || '2Gi' }}
+          CLOUD_RUN_CONCURRENCY: ${{ vars.CLOUD_RUN_CONCURRENCY || '80' }}
+          CLOUD_RUN_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_SERVICE_ACCOUNT || '' }}
+          GCP_PROJECT_ID: ${{ needs.build.outputs.project-id }}
+        run: |
+          echo "🚀 Deploying test service..."
+          echo "Image: ${{ needs.build.outputs.image-uri }}"
+          echo "Service: ${{ env.CLOUD_RUN_SERVICE }}"
+          
+          # Build deployment arguments
+          DEPLOY_ARGS=(
+            --image "${{ needs.build.outputs.image-uri }}"
+            --region "${{ env.CLOUD_RUN_REGION }}"
+            --project "$GCP_PROJECT_ID"
+            --platform managed
+            --quiet
+          )
+          
+          # Add optional parameters if set
+          if [[ -n "$CLOUD_RUN_SERVICE_ACCOUNT" ]]; then
+            DEPLOY_ARGS+=(--service-account "$CLOUD_RUN_SERVICE_ACCOUNT")
+          fi
+          
+          if [[ -n "$CLOUD_RUN_MAX_INSTANCES" ]]; then
+            DEPLOY_ARGS+=(--max-instances "$CLOUD_RUN_MAX_INSTANCES")
+          fi
+          
+          if [[ -n "$CLOUD_RUN_MIN_INSTANCES" ]]; then
+            DEPLOY_ARGS+=(--min-instances "$CLOUD_RUN_MIN_INSTANCES")
+          fi
+          
+          if [[ -n "$CLOUD_RUN_CPU" ]]; then
+            DEPLOY_ARGS+=(--cpu "$CLOUD_RUN_CPU")
+          fi
+          
+          if [[ -n "$CLOUD_RUN_MEMORY" ]]; then
+            DEPLOY_ARGS+=(--memory "$CLOUD_RUN_MEMORY")
+          else
+            # Default to 2Gi for ML dependencies
+            DEPLOY_ARGS+=(--memory "2Gi")
+          fi
+          
+          if [[ -n "$CLOUD_RUN_CONCURRENCY" ]]; then
+            DEPLOY_ARGS+=(--concurrency "$CLOUD_RUN_CONCURRENCY")
+          fi
+          
+          # Deploy the test service
+          gcloud run deploy "${{ env.CLOUD_RUN_SERVICE }}" "${DEPLOY_ARGS[@]}"
+          
+          echo "✅ Test deployment completed"
+      
+      - name: Get Service Details
+        env:
+          GCP_PROJECT_ID: ${{ needs.build.outputs.project-id }}
+        run: |
+          echo "📋 Getting test service details..."
+          
+          # Get service details
+          SERVICE_URL=$(gcloud run services describe ${{ env.CLOUD_RUN_SERVICE }} \
+            --region="${{ env.CLOUD_RUN_REGION }}" \
             --project="$GCP_PROJECT_ID" \
             --format="value(status.url)")
           
-          echo "Test service deployed to: $SERVICE_URL"
           echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+          
+          # Display full service configuration
+          echo "### Test Service Configuration ###"
+          gcloud run services describe ${{ env.CLOUD_RUN_SERVICE }} \
+            --region="${{ env.CLOUD_RUN_REGION }}" \
+            --project="$GCP_PROJECT_ID" \
+            --format="yaml"
+          
+          # Display key information in a more readable format
+          echo ""
+          echo "### Key Service Details ###"
+          gcloud run services describe ${{ env.CLOUD_RUN_SERVICE }} \
+            --region="${{ env.CLOUD_RUN_REGION }}" \
+            --project="$GCP_PROJECT_ID" \
+            --format="table(
+              metadata.name:label=SERVICE,
+              spec.template.spec.containers[0].resources.limits.memory:label=MEMORY,
+              spec.template.spec.containers[0].resources.limits.cpu:label=CPU,
+              spec.template.metadata.annotations.'autoscaling.knative.dev/maxScale':label=MAX_INSTANCES,
+              spec.template.metadata.annotations.'autoscaling.knative.dev/minScale':label=MIN_INSTANCES,
+              status.url:label=URL
+            )"
       
-      - name: Test summary
+      - name: Test deployment summary
+        env:
+          GCP_PROJECT_ID: ${{ needs.build.outputs.project-id }}
         run: |
-          if [[ "${{ inputs.mode }}" == "dry-run" ]]; then
-            echo "## 🧪 Test Deploy Summary (Dry Run)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Status:** ✅ Dry run completed successfully" >> $GITHUB_STEP_SUMMARY
-            echo "**Service:** $CLOUD_RUN_SERVICE" >> $GITHUB_STEP_SUMMARY
-            echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The real deployment workflow should work correctly!" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## 🚀 Test Deployment Complete" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Mode:** Test Deploy" >> $GITHUB_STEP_SUMMARY
-            echo "**Project:** $GCP_PROJECT_ID" >> $GITHUB_STEP_SUMMARY
-            echo "**Service:** $CLOUD_RUN_SERVICE" >> $GITHUB_STEP_SUMMARY
-            echo "**URL:** $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
-            echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ This is a TEST deployment. Remember to clean up test resources when done!" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "## 🚀 Test Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Mode:** Test Deploy" >> $GITHUB_STEP_SUMMARY
+          echo "**Project:** $GCP_PROJECT_ID" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** ${{ env.CLOUD_RUN_SERVICE }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ needs.build.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.CLOUD_RUN_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **CPU:** ${{ vars.CLOUD_RUN_CPU || '4' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Memory:** ${{ vars.CLOUD_RUN_MEMORY || '2Gi' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Max Instances:** ${{ vars.CLOUD_RUN_MAX_INSTANCES || '10' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Min Instances:** ${{ vars.CLOUD_RUN_MIN_INSTANCES || '0' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Concurrency:** ${{ vars.CLOUD_RUN_CONCURRENCY || '80' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ This is a TEST deployment. Remember to clean up test resources when done!" >> $GITHUB_STEP_SUMMARY

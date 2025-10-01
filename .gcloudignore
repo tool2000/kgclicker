@@ -32,3 +32,4 @@ app/examples/*.json
 
 # Include only necessary app files
 !app/index.html
+!src/kg_gen/utils/template.html
