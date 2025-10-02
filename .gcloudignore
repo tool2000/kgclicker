@@ -22,7 +22,7 @@ data/
 experiments/
 tests/data/
 examples/*.json
-app/examples/*.json
+# app/examples/*.json
 *.html
 
 # Explicitly include Dockerfiles

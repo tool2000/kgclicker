@@ -224,6 +224,7 @@ jobs:
             --region "${{ env.CLOUD_RUN_REGION }}"
             --project "$GCP_PROJECT_ID"
             --platform managed
+            --allow-unauthenticated
             --quiet
           )
           
