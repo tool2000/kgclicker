@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GCP_PROJECT_ID=kggen-ai
-CLOUD_RUN_SERVICE=app
-CLOUD_RUN_REGION=us-central1
-ARTIFACT_REGISTRY_REPO=app
-IMAGE_NAME=${IMAGE_NAME:-cloud-run-app}
+GCP_PROJECT_ID=${GCP_PROJECT_ID:-kggen-ai}
+CLOUD_RUN_SERVICE=${CLOUD_RUN_SERVICE:-app-test}
+CLOUD_RUN_REGION=${CLOUD_RUN_REGION:-us-central1}
+ARTIFACT_REGISTRY_REPO=${ARTIFACT_REGISTRY_REPO:-app}
+IMAGE_NAME=${IMAGE_NAME:-cloud-run-app-test}
 IMAGE_TAG=${IMAGE_TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%s)}
 ARTIFACT_REGISTRY_LOCATION=${ARTIFACT_REGISTRY_LOCATION:-$CLOUD_RUN_REGION}
 IMAGE_URI="${ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
@@ -14,6 +14,8 @@ printf "[deploy] Building and pushing image %s\n" "$IMAGE_URI"
 
 # Change to project root for build context
 cd "$(dirname "$0")/.."
+
+rm -f Dockerfile .dockerignore
 
 gcloud builds submit \
   --config app/cloudbuild.yaml \

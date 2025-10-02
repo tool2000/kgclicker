@@ -21,8 +21,8 @@ data/
 # Exclude experiment and test data
 experiments/
 tests/data/
-examples/*.json
-app/examples/*.json
+/examples/*.json
+# app/examples/*.json
 *.html
 
 # Explicitly include Dockerfiles
@@ -32,3 +32,4 @@ app/examples/*.json
 
 # Include only necessary app files
 !app/index.html
+!src/kg_gen/utils/template.html
