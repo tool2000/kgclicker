@@ -21,7 +21,7 @@ data/
 # Exclude experiment and test data
 experiments/
 tests/data/
-examples/*.json
+/examples/*.json
 # app/examples/*.json
 *.html
 
