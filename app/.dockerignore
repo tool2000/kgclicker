@@ -12,5 +12,5 @@ experiments
 data
 images
 tests
-examples
+# examples
 scripts/*.sh
