@@ -1,6 +1,6 @@
 # kg-gen: Knowledge Graph Generation from Any Text
 
-📄 [**Paper**](https://arxiv.org/abs/2502.09956) | 🐍 [**Package**](https://pypi.org/project/kg-gen/) | 🤖 [**MCP**](mcp/) | 🔬 [**Experiments**](experiments/)
+📄 [**Paper**](https://arxiv.org/abs/2502.09956) | 🐍 [**Package**](https://pypi.org/project/kg-gen/) | 🤖 [**MCP**](mcp/) | 🔬 [**Experiments**](experiments/) | 👩🏻‍💻 [**Dataset**](https://huggingface.co/datasets/belindamo/wiki_qa_kggen)
 
 > 💡New! Try KGGen's [MCP Server](#mcp-server-for-ai-agents) to give your agent knowledge graph memory
 
