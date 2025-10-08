@@ -879,6 +879,8 @@
 
                 d3.select(canvas).call(zoom);
 
+                // Set initial zoom level
+                zoom.scaleTo(d3.select(canvas), 0.5);
 
                 function getMousePos(event) {
                     const rect = canvas.getBoundingClientRect();
