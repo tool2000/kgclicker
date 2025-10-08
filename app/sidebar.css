@@ -129,6 +129,7 @@
 }
 
 .cluster-item,
+.entity-item,
 .relation-item {
     border-left: 4px solid transparent;
     text-align: left;
@@ -137,17 +138,20 @@
 }
 
 .cluster-item:hover,
+.entity-item:hover,
 .relation-item:hover {
     background: #e2e8f0;
 }
 
 .cluster-item.active,
+.entity-item.active,
 .relation-item.active {
     transform: translateX(4px);
     background: #e2e8f0;
 }
 
 .cluster-item .meta,
+.entity-item .meta,
 .relation-item .meta {
     font-size: 0.8rem;
     color: #475569;

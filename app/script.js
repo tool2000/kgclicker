@@ -863,9 +863,9 @@
             // Update clear button style
             if (clearTextButton) {
                 if (hasContent) {
-                    clearTextButton.classList.add('active');
+                    clearTextButton.disabled = false;
                 } else {
-                    clearTextButton.classList.remove('active');
+                    clearTextButton.disabled = true;
                 }
             }
         }

@@ -40,12 +40,13 @@
 
             <!-- Unified Sidebar Mode Tabs -->
             <div class="sidebar-mode-tabs">
-                <button class="sidebar-mode-tab active" data-mode="setup">Setup</button>
+                <button class="sidebar-mode-tab active" data-mode="open">Open existing</button>
+                <button class="sidebar-mode-tab" data-mode="generate">Generate from text</button>
                 <button class="sidebar-mode-tab" data-mode="analysis">Analysis</button>
             </div>
 
-            <!-- Setup Mode Content -->
-            <div class="sidebar-mode-content" id="setupModeContent">
+            <!-- Open existing data Mode Content -->
+            <div class="sidebar-mode-content" id="openModeContent">
                 <section class="card" id="existingGraphCard">
                     <h2>Open existing graph</h2>
                     <p>Upload a saved visualization JSON or raw <code>graph.json</code> to render it instantly.</p>
@@ -67,7 +68,10 @@
                         </div>
                     </div>
                 </section>
+            </div>
 
+            <!-- Generate from text Mode Content -->
+            <div class="sidebar-mode-content" id="generateModeContent">
                 <section class="card" id="generateCard">
                     <h2>Generate from text</h2>
                     <p>Provide your OpenAI API key and either paste text or upload a <code>.txt</code> document. The request

@@ -159,8 +159,9 @@ class SidebarManager {
 
     setupModeSwitching() {
         const modeTabs = document.querySelectorAll('.sidebar-mode-tab');
-        const setupContent = document.getElementById('setupModeContent');
         const analysisContent = document.getElementById('analysisModeContent');
+        const openContent = document.getElementById('openModeContent');
+        const generateContent = document.getElementById('generateModeContent');
 
         modeTabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -175,7 +176,8 @@ class SidebarManager {
 
         this.currentMode = mode;
         const modeTabs = document.querySelectorAll('.sidebar-mode-tab');
-        const setupContent = document.getElementById('setupModeContent');
+        const openContent = document.getElementById('openModeContent');
+        const generateContent = document.getElementById('generateModeContent');
         const analysisContent = document.getElementById('analysisModeContent');
 
         // Update tab states
@@ -184,11 +186,17 @@ class SidebarManager {
         });
 
         // Update content visibility
-        if (mode === 'setup') {
-            setupContent.style.display = 'flex';
+        if (mode === 'open') {
+            openContent.style.display = 'flex';
+            generateContent.style.display = 'none';
+            analysisContent.style.display = 'none';
+        } else if (mode === 'generate') {
+            openContent.style.display = 'none';
+            generateContent.style.display = 'flex';
             analysisContent.style.display = 'none';
         } else if (mode === 'analysis') {
-            setupContent.style.display = 'none';
+            openContent.style.display = 'none';
+            generateContent.style.display = 'none';
             analysisContent.style.display = 'flex';
 
             // Auto-populate analysis if we have graph data
@@ -371,14 +379,11 @@ class SidebarManager {
     updateTopEntities(topEntities) {
         const container = document.getElementById('topEntities');
         if (!container) return;
-
         const entityItems = topEntities.map(item => {
-            const clusterLabel = item.cluster ? `${item.cluster}` : 'Unclustered';
             return `
-                <div class="list-item">
+                <div class="list-item entity-item" data-id="${item.label}">
                     <div>
                         <strong>${item.label}</strong>
-                        <div class="meta">Cluster: ${clusterLabel}</div>
                     </div>
                     <div>${item.degree}</div>
                 </div>
@@ -477,6 +482,21 @@ class SidebarManager {
                 // Toggle active state
                 const isActive = item.classList.contains('active');
                 document.querySelectorAll('.cluster-item').forEach(el => el.classList.remove('active'));
+                if (!isActive) {
+                    item.classList.add('active');
+                }
+            });
+        });
+
+        // Setup top entities interactions
+        document.querySelectorAll('.entity-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const id = item.getAttribute('data-id');
+                this.sendIframeMessage('focusEntity', { id });
+
+                // Toggle active state
+                const isActive = item.classList.contains('active');
+                document.querySelectorAll('.entity-item').forEach(el => el.classList.remove('active'));
                 if (!isActive) {
                     item.classList.add('active');
                 }
