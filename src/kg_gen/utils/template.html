@@ -840,6 +840,14 @@
                 nodes = vizData.nodes.map(node => ({ ...node }));
                 edges = vizData.edges.map(edge => ({ ...edge }));
 
+                // Mouse interaction handling
+                let draggedNode = null;
+                let isDraggingNode = false;
+                let mouseX, mouseY;
+                let mouseDownPos = null;
+                let isMouseDown = false;
+                const DRAG_THRESHOLD = 10; // pixels - minimum movement to start dragging
+
                 // Create D3 force simulation
                 simulation = d3
                     .forceSimulation(nodes)
@@ -848,19 +856,29 @@
                     .force('center', d3.forceCenter(width / 2, height / 2))
                     .force('collision', d3.forceCollide().radius(d => d.radius + 12));
 
-                // Set up zoom behavior
+                // Set up zoom behavior with conditional activation
                 const zoom = d3.zoom()
                     .scaleExtent([0.25, 3])
                     .on('zoom', (event) => {
-                        transform = event.transform;
-                        render();
+                        // Apply zoom only if not dragging a node
+                        if (!isDraggingNode) {
+                            transform = event.transform;
+                            render();
+                        }
+                    })
+                    .filter((event) => {
+                        // Allow zoom with mouse wheel or when no node under cursor
+                        if (event.type === 'wheel') return true;
+                        if (event.type === 'mousedown' && event.button === 0) {
+                            const pos = getMousePos(event);
+                            const node = findNode(pos.x, pos.y);
+                            return !node;
+                        }
+                        return true;
                     });
 
                 d3.select(canvas).call(zoom);
 
-                // Mouse interaction handling
-                let draggedNode = null;
-                let mouseX, mouseY;
 
                 function getMousePos(event) {
                     const rect = canvas.getBoundingClientRect();
@@ -907,27 +925,54 @@
                     return null;
                 }
 
+                // Prevent context menu on right click
+                canvas.addEventListener('contextmenu', (event) => {
+                    event.preventDefault();
+                    return false;
+                });
+
                 canvas.addEventListener('mousedown', (event) => {
+                    // Allow event only for primary button (left click)
+                    if (event.button !== 0) return;
+
                     const pos = getMousePos(event);
                     mouseX = pos.x;
                     mouseY = pos.y;
+                    mouseDownPos = { x: pos.x, y: pos.y };
+                    isMouseDown = true;
                     draggedNode = findNode(pos.x, pos.y);
 
                     if (draggedNode) {
-                        simulation.alphaTarget(0.3).restart();
-                        draggedNode.fx = draggedNode.x;
-                        draggedNode.fy = draggedNode.y;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        // Don't start dragging immediately - wait for movement
                         canvas.style.cursor = 'grabbing';
                     }
                 });
 
                 canvas.addEventListener('mousemove', (event) => {
+                    // Allow event only for primary button (left click)
+                    if (event.button !== 0) return;
                     const pos = getMousePos(event);
 
-                    if (draggedNode) {
+                    if (draggedNode && isDraggingNode) {
+                        // Already dragging - continue moving the node
                         draggedNode.fx = pos.x;
                         draggedNode.fy = pos.y;
-                    } else {
+                    } else if (draggedNode && isMouseDown && mouseDownPos) {
+                        // Check if mouse moved enough to start dragging
+                        const dx = pos.x - mouseDownPos.x;
+                        const dy = pos.y - mouseDownPos.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (distance > DRAG_THRESHOLD) {
+                            // Start dragging
+                            isDraggingNode = true;
+                            simulation.alphaTarget(0.1).restart();
+                            draggedNode.fx = draggedNode.x;
+                            draggedNode.fy = draggedNode.y;
+                        }
+                    } else if (!isDraggingNode && !isMouseDown) {
                         // Update cursor based on what's under mouse
                         const node = findNode(pos.x, pos.y);
                         const edge = findEdge(pos.x, pos.y);
@@ -936,16 +981,31 @@
                 });
 
                 canvas.addEventListener('mouseup', (event) => {
+                    // Allow event only for primary button (left click)
+                    if (event.button !== 0) return;
+
                     if (draggedNode) {
-                        simulation.alphaTarget(0);
-                        draggedNode.fx = null;
-                        draggedNode.fy = null;
+                        if (isDraggingNode) {
+                            // Was actually dragging - stop the drag
+                            simulation.alphaTarget(0);
+                            draggedNode.fx = null;
+                            draggedNode.fy = null;
+                        }
+                        // Reset node reference
                         draggedNode = null;
                         canvas.style.cursor = 'grab';
                     }
+
+                    // Reset all mouse states
+                    isMouseDown = false;
+                    isDraggingNode = false;
+                    mouseDownPos = null;
                 });
 
                 canvas.addEventListener('click', (event) => {
+                    // Only handle click if we weren't dragging
+                    if (isDraggingNode) return;
+
                     const pos = getMousePos(event);
                     const node = findNode(pos.x, pos.y);
                     const edge = findEdge(pos.x, pos.y);
@@ -961,7 +1021,10 @@
 
                 // Animation loop
                 simulation.on('tick', () => {
-                    render();
+                    // Avoid nodes to be re-rendered all time, just re-render when moving
+                    if (isDraggingNode) {
+                        render();
+                    }
                 });
 
                 // Handle window resize
@@ -1008,7 +1071,7 @@
 
                 // Clear canvas
                 ctx.clearRect(0, 0, canvas.width / (window.devicePixelRatio || 1),
-                             canvas.height / (window.devicePixelRatio || 1));
+                    canvas.height / (window.devicePixelRatio || 1));
 
                 // Apply transform
                 ctx.save();
