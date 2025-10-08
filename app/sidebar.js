@@ -379,14 +379,11 @@ class SidebarManager {
     updateTopEntities(topEntities) {
         const container = document.getElementById('topEntities');
         if (!container) return;
-
         const entityItems = topEntities.map(item => {
-            const clusterLabel = item.cluster ? `${item.cluster}` : 'Unclustered';
             return `
-                <div class="list-item">
+                <div class="list-item entity-item" data-id="${item.label}">
                     <div>
                         <strong>${item.label}</strong>
-                        <div class="meta">Cluster: ${clusterLabel}</div>
                     </div>
                     <div>${item.degree}</div>
                 </div>
@@ -485,6 +482,21 @@ class SidebarManager {
                 // Toggle active state
                 const isActive = item.classList.contains('active');
                 document.querySelectorAll('.cluster-item').forEach(el => el.classList.remove('active'));
+                if (!isActive) {
+                    item.classList.add('active');
+                }
+            });
+        });
+
+        // Setup top entities interactions
+        document.querySelectorAll('.entity-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const id = item.getAttribute('data-id');
+                this.sendIframeMessage('focusEntity', { id });
+
+                // Toggle active state
+                const isActive = item.classList.contains('active');
+                document.querySelectorAll('.entity-item').forEach(el => el.classList.remove('active'));
                 if (!isActive) {
                     item.classList.add('active');
                 }

@@ -776,6 +776,14 @@
                 updateHighlights();
             }
 
+            function toggleEntityFocus(id) {
+                if (state.activeElement?.id === id) {
+                    setActiveElement(null);
+                } else {
+                    setActiveElement({ type: 'node', id: id });
+                }
+            }
+
             function updateActiveButtons() {
                 document.querySelectorAll('.cluster-item').forEach(item => {
                     const clusterId = item.getAttribute('data-cluster');
@@ -1391,6 +1399,8 @@
                         toggleClusterFocus(event.data.clusterId);
                     } else if (event.data.type === 'focusPredicate') {
                         togglePredicateFocus(event.data.predicate);
+                    } else if (event.data.type === 'focusEntity') {
+                        toggleEntityFocus(event.data.id);
                     }
                 });
 
