@@ -159,8 +159,9 @@ class SidebarManager {
 
     setupModeSwitching() {
         const modeTabs = document.querySelectorAll('.sidebar-mode-tab');
-        const setupContent = document.getElementById('setupModeContent');
         const analysisContent = document.getElementById('analysisModeContent');
+        const openContent = document.getElementById('openModeContent');
+        const generateContent = document.getElementById('generateModeContent');
 
         modeTabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -175,7 +176,8 @@ class SidebarManager {
 
         this.currentMode = mode;
         const modeTabs = document.querySelectorAll('.sidebar-mode-tab');
-        const setupContent = document.getElementById('setupModeContent');
+        const openContent = document.getElementById('openModeContent');
+        const generateContent = document.getElementById('generateModeContent');
         const analysisContent = document.getElementById('analysisModeContent');
 
         // Update tab states
@@ -184,11 +186,17 @@ class SidebarManager {
         });
 
         // Update content visibility
-        if (mode === 'setup') {
-            setupContent.style.display = 'flex';
+        if (mode === 'open') {
+            openContent.style.display = 'flex';
+            generateContent.style.display = 'none';
+            analysisContent.style.display = 'none';
+        } else if (mode === 'generate') {
+            openContent.style.display = 'none';
+            generateContent.style.display = 'flex';
             analysisContent.style.display = 'none';
         } else if (mode === 'analysis') {
-            setupContent.style.display = 'none';
+            openContent.style.display = 'none';
+            generateContent.style.display = 'none';
             analysisContent.style.display = 'flex';
 
             // Auto-populate analysis if we have graph data
