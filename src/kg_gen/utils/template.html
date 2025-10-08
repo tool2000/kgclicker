@@ -1051,11 +1051,11 @@
                     ctx.stroke();
 
                     // Draw arrowhead
-                    const arrowLength = 10;
-                    const arrowWidth = 5;
+                    const arrowLength = 12;
+                    const arrowWidth = 24;
                     const angle = Math.atan2(dy, dx);
 
-                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillStyle = edge.color;
                     ctx.beginPath();
                     ctx.moveTo(targetX, targetY);
                     ctx.lineTo(
