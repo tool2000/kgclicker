@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 import dspy
 from pydantic import BaseModel
 
@@ -62,7 +62,7 @@ def get_relations(
     entities: list[str],
     is_conversation: bool = False,
     context: str = "",
-) -> List[str]:
+) -> List[Tuple[str, str, str]]:
     class Relation(BaseModel):
         """Knowledge graph subject-predicate-object tuple."""
 

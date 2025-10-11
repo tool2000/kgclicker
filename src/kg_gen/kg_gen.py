@@ -9,7 +9,7 @@ from .models import Graph
 import dspy
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import networkx as nx
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -203,37 +203,30 @@ class KGGen:
                 api_base=api_base or self.api_base,
             )
 
-        if not chunk_size:
-            with dspy.context(lm=self.lm):
-                entities = get_entities(
-                    processed_input, is_conversation=is_conversation
-                )
+        def _process(content, lm):
+            with dspy.context(lm=lm):
+                entities = get_entities(content, is_conversation)
                 relations = get_relations(
-                    processed_input, entities, is_conversation=is_conversation
+                    content, entities, is_conversation=is_conversation
                 )
+                return entities, relations
+
+        if not chunk_size:
+            entities, relations = _process(processed_input, self.lm)
         else:
             chunks = chunk_text(processed_input, chunk_size)
             entities = set()
             relations = set()
 
-            def process_chunk(chunk, lm):
-                with dspy.context(lm=lm):
-                    chunk_entities = get_entities(chunk, is_conversation)
-                    chunk_relations = get_relations(
-                        chunk, chunk_entities, is_conversation=is_conversation
-                    )
-                    return chunk_entities, chunk_relations
-
-            # Process chunks in parallel using ThreadPoolExecutor
             with ThreadPoolExecutor() as executor:
-                results = list(
-                    executor.map(process_chunk, chunks, [self.lm] * len(chunks))
-                )
+                future_to_chunk = {
+                    executor.submit(_process, chunk, self.lm): chunk for chunk in chunks
+                }
 
-            # Combine results
-            for chunk_entities, chunk_relations in results:
-                entities.update(chunk_entities)
-                relations.update(chunk_relations)
+                for future in as_completed(future_to_chunk):
+                    chunk_entities, chunk_relations = future.result()
+                    entities.update(chunk_entities)
+                    relations.update(chunk_relations)
 
         graph = Graph(
             entities=entities,
