@@ -1,11 +1,11 @@
 from typing import Union, List, Dict, Optional
 
-from .steps._1_get_entities import get_entities
-from .steps._2_get_relations import get_relations
-from .steps._3_cluster_graph import cluster_graph
-from .utils.chunk_text import chunk_text
-from .utils.visualize_kg import visualize as visualize_kg
-from .models import Graph
+from kg_gen.steps._1_get_entities import get_entities
+from kg_gen.steps._2_get_relations import get_relations
+from kg_gen.steps._3_dedup_cluster_graph import dedup_cluster_graph
+from kg_gen.utils.chunk_text import chunk_text
+from kg_gen.utils.visualize_kg import visualize as visualize_kg
+from kg_gen.models import Graph
 import dspy
 import json
 import os
@@ -279,7 +279,7 @@ class KGGen:
             )
 
         with dspy.context(lm=self.lm):
-            return cluster_graph(graph, context)
+            return dedup_cluster_graph(graph)
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
         # Initialize empty sets for combined graph
