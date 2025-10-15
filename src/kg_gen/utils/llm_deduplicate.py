@@ -1,5 +1,5 @@
+from typing import List
 from scipy.spatial.distance import cdist
-import faiss
 from concurrent.futures import ThreadPoolExecutor
 import dspy
 from kg_gen.models import Graph
@@ -9,6 +9,7 @@ from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
+from sklearn.cluster import KMeans
 
 
 class LLMDeduplicate:
@@ -78,7 +79,6 @@ class LLMDeduplicate:
         return top_items
 
     def cluster(self):
-
         cluster_size = 128
 
         embedding_sets = {
@@ -87,25 +87,32 @@ class LLMDeduplicate:
         }
 
         for embedding_type, embeddings in embedding_sets.items():
-            # Step 1: Cluster centers with FAISS
-            d = embeddings.shape[1]
-            num_clusters = len(embeddings) // cluster_size
+            n_samples = len(embeddings)
+            num_clusters = max(1, n_samples // cluster_size)
 
-            kmeans = faiss.Kmeans(
-                d, num_clusters, niter=20, verbose=True, gpu=False)
-            kmeans.train(embeddings.astype(np.float32))
-            centroids = kmeans.centroids
+            # Step 1: Cluster centers
+            kmeans = KMeans(
+                n_clusters=num_clusters,
+                init="random",
+                n_init=1,
+                max_iter=20,
+                tol=0.0,
+                algorithm="lloyd",
+                verbose=True,
+            )
+            kmeans.fit(embeddings.astype(np.float32))
+            centroids = kmeans.cluster_centers_
 
             # Step 2: Assign each point to nearest centroid (with 25 max per cluster)
-            distances = cdist(embeddings, centroids)  # (300000, num_clusters)
+            distances = cdist(embeddings, centroids)
             assignments = np.argsort(distances, axis=1)
 
             # Initialize cluster tracking
-            clusters = [[] for _ in range(num_clusters)]
-            assigned = np.full(len(embeddings), False)
+            clusters: List[List[int]] = [[] for _ in range(num_clusters)]
+            assigned = np.zeros(n_samples, dtype=bool)
 
             for rank in range(num_clusters):
-                for i in range(len(embeddings)):
+                for i in range(n_samples):
                     if assigned[i]:
                         continue
                     cluster_id = assignments[i, rank]
@@ -264,7 +271,8 @@ class LLMDeduplicate:
             except Exception as e:
                 self.logger.error("Error processing edge cluster %s: %s", i, e)
 
-        self.logger.info("Finished processing all clusters with %s nodes and %s edges LLM calls", cnt_nodes, cnt_edges)
+        self.logger.info(
+            "Finished processing all clusters with %s nodes and %s edges LLM calls", cnt_nodes, cnt_edges)
 
         # Update relations based on clusters
         relations: set[tuple[str, str, str]] = set()
