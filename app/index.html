@@ -8,6 +8,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="sidebar.css">
     <link
@@ -26,13 +30,13 @@
                 <span class="hamburger-line"></span>
             </div>
         </button>
-        <h1 class="mobile-app-title">Knowledge Graph Explorer</h1>
+        <h1 class="mobile-app-title">Knowledges Graph Explorer</h1>
     </div>
 
     <div class="layout">
         <main class="sidebar" id="sidebar" data-simplebar>
             <header>
-                <h1>Knowledge Graph Explorer</h1>
+                <h1>Knowledges Graph Explorer</h1>
                 <p class="description">Load an existing <code>graph.json</code> or generate one from text using
                     <code>kg-gen</code>. Rendering stays in your browser.
                 </p>
@@ -139,15 +143,15 @@
                 </div>
                 <div class="analysis-content" id="analysisContent" style="display: none;">
                     <div class="stats-grid" id="statsGrid"></div>
-                    <div class="analysis-section">
-                        <h2>Search</h2>
-                        <input id="searchInput" class="search-input" type="text" placeholder="Search for entities or relations" />
-                        <div class="search-hint">Matches are highlighted. Press Escape to clear.</div>
-                    </div>
-                    <div class="analysis-section" id="selectionSection">
+                    <!-- <div class="analysis-section"> -->
+                        <!-- <h2>Search</h2> -->
+                        <!-- <input id="searchInput" class="search-input" type="text" placeholder="Search for entities or relations" /> -->
+                        <!-- <div class="search-hint">Matches are highlighted. Press Escape to clear.</div> -->
+                    <!-- </div> -->
+                    <!-- <div class="analysis-section" id="selectionSection">
                         <h2>Selection</h2>
                         <div id="selectionDetails" class="selection-card">Click a node or relation in the network to inspect details.</div>
-                    </div>
+                    </div> -->
                     <div class="analysis-section">
                         <h2>Entity Clusters</h2>
                         <div id="clusterList" class="list"></div>
@@ -165,18 +169,51 @@
 
         </main>
 
-        <section class="viewer-wrapper">
-            <iframe id="viewer" title="Knowledge Graph Explorer" hidden></iframe>
-            <div class="floating-actions" id="floatingActions" hidden>
-                <button class="secondary" id="downloadGraph" type="button">Download graph.json</button>
-                <button class="secondary" id="refreshView" type="button">Reload view</button>
-            </div>
-        </section>
+        
+        <div class="viewer-wrapper-container">
+            <header class="app-header" role="banner">
+                <div class="app-header__inner">
+                    <div class="app-header__search" role="search" aria-label="Global search">
+                        <div class="search-field">
+                            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm9.707 13.293-3.4-3.4a1 1 0 1 0-1.414 1.414l3.4 3.4a1 1 0 0 0 1.414-1.414z"></path>
+                            </svg>
+                            <input id="globalSearch" class="search-input" type="search" placeholder="Search entities, relations..." aria-label="Search" autocomplete="off" />
+                        </div>
+                    </div>
+                    <button id="viewSelectionBtn" class="view-selection-btn" title="View selected item">
+                        <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M11.2 4c-1.26.12-2.48.53-3.56 1.2l-1-1.73A9.7 9.7 0 0 1 11 2m6.53 4.25c-.91-.86-2-1.52-3.19-1.92L15 2.39c1.5.45 2.89 1.27 4 2.39M5.34 7.41A8.3 8.3 0 0 0 4 10.83l-2-.28C2.2 9 2.79 7.5 3.7 6.23M22 12v.66l-2-.16V12c0-1.08-.19-2.14-.61-3.14l1.83-.8c.53 1.25.78 2.59.78 3.94M6 17.3l-1.5 1.31a10.46 10.46 0 0 1-2.2-4.08L4.17 14c.36 1.22.99 2.35 1.83 3.3m6.14 4.7H12c-1.5 0-3-.32-4.36-.93l.89-1.83c1.09.51 2.27.76 3.47.76h.19M17 21h-2v-6h6v2h-2.58l2.72 2.76l-1.41 1.41L17 18.5"/>
+                        </svg>
+                    </button>
+                    <div id="selectionPopover" class="selection-popover" role="dialog" aria-labelledby="selection-title" hidden>
+                        <div class="popover-header">
+                            <h3 id="selection-title">Selected Item</h3>
+                            <button id="closePopover" class="close-btn" aria-label="Close">&times;</button>
+                        </div>
+                        <div class="popover-content">
+                            <div id="selectionList">Click a node or relation in the network to inspect details.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            <section class="viewer-wrapper">
+                <iframe id="viewer" title="Knowledge Graph Explorer" hidden></iframe>
+                <div class="floating-actions" id="floatingActions" hidden>
+                    <button class="secondary" id="downloadGraph" type="button">Download graph.json</button>
+                    <button class="secondary" id="refreshView" type="button">Reload view</button>
+                </div>
+            </section>
+        </div>
     </div>
 
     <script src="script.js"></script>
     <script src="sidebar.js"></script>
     <script src="https://unpkg.com/simplebar@latest/dist/simplebar.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@floating-ui/core@1.7.3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.7.4"></script>
+    <script src="popover-selected.js"></script>
 </body>
 
 </html>

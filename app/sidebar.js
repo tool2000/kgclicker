@@ -50,6 +50,51 @@ class SidebarManager {
             this.checkMobile();
         });
 
+        // Header global search wiring
+        const globalSearch = document.getElementById('globalSearch');
+        const globalSearchClear = document.getElementById('globalSearchClear');
+        if (globalSearch) {
+            const debounce = (func, wait) => {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            };
+
+            const handleSearch = debounce(() => {
+                this.sendIframeMessage('search', { term: globalSearch.value.trim() });
+            }, 300);
+
+            globalSearch.addEventListener('input', handleSearch);
+            globalSearch.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    globalSearch.value = '';
+                    this.sendIframeMessage('search', { term: '' });
+                }
+            });
+
+            if (globalSearchClear) {
+                const toggleClearVisibility = () => {
+                    globalSearchClear.style.opacity = globalSearch.value ? '1' : '0';
+                };
+                globalSearch.addEventListener('input', toggleClearVisibility);
+                toggleClearVisibility();
+            }
+        }
+
+        if (globalSearchClear && globalSearch) {
+            globalSearchClear.addEventListener('click', () => {
+                globalSearch.value = '';
+                globalSearch.focus();
+                this.sendIframeMessage('search', { term: '' });
+            });
+        }
+
     }
 
     setupMobileMenu() {
@@ -244,6 +289,9 @@ class SidebarManager {
         if (this.currentMode === 'analysis') {
             this.updateSelectionDetails(selection);
         }
+        
+        // Update popover with selection data
+        this.updatePopoverSelection(selection);
     }
 
     handleSearchChanged(searchTerm) {
@@ -444,9 +492,60 @@ class SidebarManager {
         }
     }
 
+    updatePopoverSelection(selection) {
+        // Check if popover functions are available
+        if (typeof window.updateSelectionPopover !== 'function') {
+            return;
+        }
+
+        if (!selection) {
+            window.updateSelectionPopover('Click a node or relation in the network to inspect details.');
+            return;
+        }
+
+        // Create formatted content for the popover
+        let popoverContent = '';
+        
+        if (selection.type === 'node') {
+            const cluster = selection.cluster ? `Cluster: ${selection.cluster}` : 'Unclustered';
+            const neighbors = selection.neighbors && selection.neighbors.length ? 
+                selection.neighbors.slice(0, 3).join(', ') + (selection.neighbors.length > 3 ? '...' : '') : 'None';
+            
+            popoverContent = `
+                <p class="selection-item-title"><strong>${selection.label}</strong></p>
+                <div class="selection-item">
+                    <p class="selection-item-characteristics"><strong>Type:</strong> Node</p>
+                    <p class="selection-item-characteristics"><strong>Cluster:</strong> ${cluster}</p>
+                    <p class="selection-item-characteristics"><strong>Degree:</strong> ${selection.degree || 0}</p>
+                    <p class="selection-item-characteristics"><strong>Out:</strong> ${selection.outdegree || 0}</p>
+                    <p class="selection-item-characteristics"><strong>In:</strong> ${selection.indegree || 0}</p>
+                    <p class="selection-item-characteristics"><strong>Neighbors:</strong> ${neighbors}</p>
+                </div>
+            `;
+        } else if (selection.type === 'edge') {
+            const cluster = selection.cluster ? `Cluster: ${selection.cluster}` : 'Unclustered';
+            
+            popoverContent = `
+                <p class="selection-item-title"><strong>${selection.source} → ${selection.target}</strong></p>
+                <div class="selection-item">
+                    <p class="selection-item-characteristics"><strong>Type:</strong> Relation</p>
+                    <p class="selection-item-characteristics"><strong>Predicate:</strong> ${selection.predicate}</p>
+                    <p class="selection-item-characteristics"><strong>Cluster:</strong> ${cluster}</p>
+                </div>
+            `;
+        }
+
+        window.updateSelectionPopover(popoverContent);
+        
+        // Automatically open the popover when selection changes
+        // if (typeof window.openSelectionPopover === 'function') {
+        //     window.openSelectionPopover();
+        // }
+    }
+
     setupAnalysisInteractions() {
         // Setup search input
-        const searchInput = document.getElementById('searchInput');
+        const searchInput = document.getElementById('globalSearch');
         if (searchInput) {
             const debounce = (func, wait) => {
                 let timeout;
@@ -461,6 +560,7 @@ class SidebarManager {
             };
 
             const handleSearch = debounce(() => {
+                console.log('handleSearch called with term:', searchInput.value.trim());
                 this.sendIframeMessage('search', { term: searchInput.value.trim() });
             }, 300);
 
