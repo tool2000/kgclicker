@@ -13,6 +13,7 @@ class SidebarManager {
         this.setupIframeMessaging();
         this.setupModeSwitching();
         this.setupMobileMenu();
+        this.setupDemoDialog();
         this.checkMobile();
     }
 
@@ -53,18 +54,23 @@ class SidebarManager {
         // Header global search wiring
         const globalSearch = document.getElementById('globalSearch');
         const globalSearchClear = document.getElementById('globalSearchClear');
-        if (globalSearch) {
-            const debounce = (func, wait) => {
-                let timeout;
-                return function executedFunction(...args) {
-                    const later = () => {
-                        clearTimeout(timeout);
-                        func(...args);
-                    };
+        const globalSearchMobile = document.getElementById('globalSearch-mobile');
+        const globalSearchClearMobile = document.getElementById('globalSearchClear-mobile');
+
+        const debounce = (func, wait) => {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
                     clearTimeout(timeout);
-                    timeout = setTimeout(later, wait);
+                    func(...args);
                 };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
             };
+        };
+
+        if (globalSearch) {
+
 
             const handleSearch = debounce(() => {
                 this.sendIframeMessage('search', { term: globalSearch.value.trim() });
@@ -87,10 +93,38 @@ class SidebarManager {
             }
         }
 
+        if (globalSearchMobile) {
+            const handleSearchMobile = debounce(() => {
+                this.sendIframeMessage('search', { term: globalSearchMobile.value.trim() });
+            }, 300);
+            globalSearchMobile.addEventListener('input', handleSearchMobile);
+            globalSearchMobile.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    globalSearchMobile.value = '';
+                    this.sendIframeMessage('search', { term: '' });
+                }
+            });
+            if (globalSearchClearMobile) {
+                const toggleClearVisibilityMobile = () => {
+                    globalSearchClearMobile.style.opacity = globalSearchMobile.value ? '1' : '0';
+                };
+                globalSearchMobile.addEventListener('input', toggleClearVisibilityMobile);
+                toggleClearVisibilityMobile();
+            }
+        }
+
         if (globalSearchClear && globalSearch) {
             globalSearchClear.addEventListener('click', () => {
                 globalSearch.value = '';
                 globalSearch.focus();
+                this.sendIframeMessage('search', { term: '' });
+            });
+        }
+
+        if (globalSearchClearMobile && globalSearchMobile) {
+            globalSearchClearMobile.addEventListener('click', () => {
+                globalSearchMobile.value = '';
+                globalSearchMobile.focus();
                 this.sendIframeMessage('search', { term: '' });
             });
         }
@@ -230,20 +264,8 @@ class SidebarManager {
             tab.classList.toggle('active', tab.getAttribute('data-mode') === mode);
         });
 
-        // Update content visibility
-        if (mode === 'open') {
-            openContent.style.display = 'flex';
-            generateContent.style.display = 'none';
-            analysisContent.style.display = 'none';
-        } else if (mode === 'generate') {
-            openContent.style.display = 'none';
-            generateContent.style.display = 'flex';
-            analysisContent.style.display = 'none';
-        } else if (mode === 'analysis') {
-            openContent.style.display = 'none';
-            generateContent.style.display = 'none';
+       if (mode === 'analysis') {
             analysisContent.style.display = 'flex';
-
             // Auto-populate analysis if we have graph data
             if (this.lastGraphData) {
                 this.updateAnalysisContent(this.lastGraphData);
@@ -428,6 +450,7 @@ class SidebarManager {
         const container = document.getElementById('topEntities');
         if (!container) return;
         const entityItems = topEntities.map(item => {
+            console.log(item);
             return `
                 <div class="list-item entity-item" data-id="${item.label}">
                     <div>
@@ -494,12 +517,18 @@ class SidebarManager {
 
     updatePopoverSelection(selection) {
         // Check if popover functions are available
-        if (typeof window.updateSelectionPopover !== 'function') {
-            return;
-        }
-
         if (!selection) {
-            window.updateSelectionPopover('Click a node or relation in the network to inspect details.');
+            try {
+                window.setMainPopoverContent('Click a node or relation in the network to inspect details.');
+            } catch (error) {
+                console.error('Error setting main popover content:', error);
+            }
+            try {
+                window.setMobilePopoverContent(popoverContent);
+            } catch (error) {
+                console.error('Error setting mobile popover content:', error);
+            }
+
             return;
         }
 
@@ -517,8 +546,8 @@ class SidebarManager {
                     <p class="selection-item-characteristics"><strong>Type:</strong> Node</p>
                     <p class="selection-item-characteristics"><strong>Cluster:</strong> ${cluster}</p>
                     <p class="selection-item-characteristics"><strong>Degree:</strong> ${selection.degree || 0}</p>
-                    <p class="selection-item-characteristics"><strong>Out:</strong> ${selection.outdegree || 0}</p>
-                    <p class="selection-item-characteristics"><strong>In:</strong> ${selection.indegree || 0}</p>
+                    <p class="selection-item-characteristics"><strong>Outgoing:</strong> ${selection.outdegree || 0}</p>
+                    <p class="selection-item-characteristics"><strong>Incoming:</strong> ${selection.indegree || 0}</p>
                     <p class="selection-item-characteristics"><strong>Neighbors:</strong> ${neighbors}</p>
                 </div>
             `;
@@ -534,14 +563,27 @@ class SidebarManager {
                 </div>
             `;
         }
-
-        window.updateSelectionPopover(popoverContent);
+        try {
+            window.setMainPopoverContent(popoverContent);
+        } catch (error) {
+            console.error('Error setting main popover content:', error);
+        }
+        try {
+            window.setMobilePopoverContent(popoverContent);
+        } catch (error) {
+            console.error('Error setting mobile popover content:', error);
+        }
         
         // Automatically open the popover when selection changes
         // if (typeof window.openSelectionPopover === 'function') {
         //     window.openSelectionPopover();
         // }
     }
+
+    setupDemoDialog() {
+        
+    }
+
 
     setupAnalysisInteractions() {
         // Setup search input

@@ -677,23 +677,24 @@
     const downloadButton = document.getElementById('downloadGraph');
     const refreshButton = document.getElementById('refreshView');
 
-    const graphFileInput = document.getElementById('graphFile');
-    const graphDropZone = document.getElementById('graphDropZone');
-    const exampleSelect = document.getElementById('exampleGraph');
-    const exampleLink = document.getElementById('exampleLink');
-    const exampleStatus = document.getElementById('exampleStatus');
+    let graphFileInput = document.getElementById('graphFile');
+    let graphDropZone = document.getElementById('graphDropZone');
+    let exampleSelect = document.getElementById('exampleGraph');
+    let exampleLink = document.getElementById('exampleLink');
+    let exampleStatus = document.getElementById('exampleStatus');
+    let modalOpenGraphViewer = null;
 
-    const apiKeyInput = document.getElementById('apiKey');
-    const modelSelect = document.getElementById('model');
-    const chunkSizeInput = document.getElementById('chunkSize');
-    const temperatureInput = document.getElementById('temperature');
-    const clusterToggle = document.getElementById('clusterToggle');
-    const contextInput = document.getElementById('context');
-    const sourceText = document.getElementById('sourceText');
-    const textFileInput = document.getElementById('textFile');
+    let apiKeyInput = document.getElementById('apiKey');
+    let modelSelect = document.getElementById('model');
+    let chunkSizeInput = document.getElementById('chunkSize');
+    let temperatureInput = document.getElementById('temperature');
+    let clusterToggle = document.getElementById('clusterToggle');
+    let contextInput = document.getElementById('context');
+    let sourceText = document.getElementById('sourceText');
+    let textFileInput = document.getElementById('textFile');
 
-    const generateButton = document.getElementById('generateButton');
-    const clearTextButton = document.getElementById('clearTextButton');
+    let generateButton = document.getElementById('generateButton');
+    let clearTextButton = document.getElementById('clearTextButton');
 
     console.log('[kg-gen] Element refs:', {
         apiKeyInput: !!apiKeyInput,
@@ -1103,6 +1104,81 @@
         }
     }
 
+    async function loadInitialExampleGraph() {
+
+        try {
+            const response = await fetch('/api/examples');
+            const items = await response.json();
+            if (!response.ok) {
+                throw new Error(Array.isArray(items?.detail) ? items.detail.join('; ') : items?.detail || 'Failed to load sample list');
+            }
+
+            items.forEach(item => {
+                if (!item || !item.slug) {
+                    return;
+                }
+                exampleMetadata.set(item.slug, item);
+            });
+
+            if (exampleMetadata.size === 0) {
+                console.error('[kg-gen] No examples found');
+                return;
+            }
+
+            // Auto-select and load the first example
+            if (items.length > 0) {
+                const firstExample = items[0];
+                console.log('[kg-gen] Auto-loading first example:', firstExample);
+                // Show loading screen immediately
+                showLoadingInViewer('Loading Example', 'Loading sample graph...');
+
+                // Automatically load the first example
+                const meta = exampleMetadata.get(firstExample.slug);
+                // updateExampleLink(meta);
+                const title = meta?.title || firstExample.slug;
+                setStatus(`Loading example graph: ${title}...`);
+
+                if (!hasLoadedGraph) {
+                    resetViewer();
+                }
+
+                fetch(`/api/examples/${firstExample.slug}`)
+                    .then(async response => {
+                        let payload;
+                        try {
+                            payload = await response.json();
+                        } catch (parseError) {
+                            if (response.ok) {
+                                throw new Error('Example payload is not valid JSON');
+                            }
+                            throw new Error(`Request failed (${response.status})`);
+                        }
+
+                        if (!response.ok) {
+                            const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
+                            throw new Error(message);
+                        }
+
+                        return handleGraphData(payload);
+                    })
+                    .then(() => {
+                        // exampleStatus.textContent = `Loaded ${title}.`;
+                    })
+                    .catch(error => {
+                        console.error('[kg-gen] Failed to load example graph', error);
+                        setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
+                        // exampleStatus.textContent = 'Could not load the selected sample.';
+                        hideLoadingInViewer();
+                    })
+                    .finally(() => {
+                    });
+            }
+        } catch (error) {
+            console.error('[kg-gen] Failed to load example graphs', error);
+        }
+     
+    }
+
     async function loadExamples() {
         if (!exampleSelect) {
             return;
@@ -1131,7 +1207,7 @@
                 emptyOption.textContent = 'No samples available';
                 exampleSelect.innerHTML = '';
                 exampleSelect.appendChild(emptyOption);
-                exampleStatus.textContent = 'Sample graphs are not available right now.';
+                // exampleStatus.textContent = 'Sample graphs are not available right now.';
                 return;
             }
 
@@ -1158,12 +1234,12 @@
                 fallbackOption.textContent = 'Samples unavailable';
                 exampleSelect.innerHTML = '';
                 exampleSelect.appendChild(fallbackOption);
-                exampleStatus.textContent = 'Sample graphs are not available right now.';
+                // exampleStatus.textContent = 'Sample graphs are not available right now.';
                 return;
             }
 
             exampleSelect.disabled = false;
-            exampleStatus.textContent = 'Select an example to load it instantly.';
+            // exampleStatus.textContent = 'Select an example to load it instantly.';
 
             // Auto-select and load the first example
             if (items.length > 0) {
@@ -1172,51 +1248,18 @@
                 exampleSelect.value = firstExample.slug;
 
                 // Show loading screen immediately
-                showLoadingInViewer('Loading Example', 'Loading sample graph...');
+                // showLoadingInViewer('Loading Example', 'Loading sample graph...');
 
                 // Automatically load the first example
                 const meta = exampleMetadata.get(firstExample.slug);
                 updateExampleLink(meta);
                 const title = meta?.title || firstExample.slug;
-                exampleStatus.textContent = `Loading ${title}...`;
-                setStatus(`Loading example graph: ${title}...`);
+                // exampleStatus.textContent = `Loading ${title}...`;
+                // setStatus(`Loading example graph: ${title}...`);
 
-                if (!hasLoadedGraph) {
-                    resetViewer();
-                }
-
-                exampleSelect.disabled = true;
-                fetch(`/api/examples/${firstExample.slug}`)
-                    .then(async response => {
-                        let payload;
-                        try {
-                            payload = await response.json();
-                        } catch (parseError) {
-                            if (response.ok) {
-                                throw new Error('Example payload is not valid JSON');
-                            }
-                            throw new Error(`Request failed (${response.status})`);
-                        }
-
-                        if (!response.ok) {
-                            const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
-                            throw new Error(message);
-                        }
-
-                        return handleGraphData(payload);
-                    })
-                    .then(() => {
-                        exampleStatus.textContent = `Loaded ${title}.`;
-                    })
-                    .catch(error => {
-                        console.error('[kg-gen] Failed to load example graph', error);
-                        setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
-                        exampleStatus.textContent = 'Could not load the selected sample.';
-                        hideLoadingInViewer();
-                    })
-                    .finally(() => {
-                        exampleSelect.disabled = exampleMetadata.size === 0;
-                    });
+                // if (!hasLoadedGraph) {
+                //     resetViewer();
+                // }
             }
         } catch (error) {
             console.error('[kg-gen] Failed to load example graphs', error);
@@ -1547,89 +1590,77 @@
         }
     }
 
-    graphDropZone.addEventListener('click', event => {
-        event.preventDefault();
-        graphFileInput.click();
-    });
 
-    graphDropZone.addEventListener('keydown', event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            graphFileInput.click();
-        }
-    });
-
-    graphFileInput.addEventListener('change', event => {
-        const [file] = event.target.files;
-        handleGraphFile(file);
-        graphFileInput.value = '';
-    });
-
-    if (exampleSelect) {
-        exampleSelect.addEventListener('change', async event => {
-            const slug = event.target.value;
-            if (!slug) {
-                exampleStatus.textContent = exampleMetadata.size
-                    ? 'Select an example to load it instantly.'
-                    : exampleStatus.textContent;
-                updateExampleLink(null);
-                return;
-            }
-
-            if (!confirmGraphReplacement('example loading')) {
-                exampleSelect.value = '';
-                return;
-            }
-
-            const meta = exampleMetadata.get(slug) || null;
-            updateExampleLink(meta);
-            const title = meta?.title || slug;
-            exampleStatus.textContent = `Loading ${title}...`;
-            setStatus(`Loading example graph: ${title}...`);
-
-            // Hide mobile sidebar and show loading with proper timing
-            if (window.sidebarManager && window.sidebarManager.isMobile) {
-                window.sidebarManager.hideMobileSidebar();
-                // Give sidebar animation time to complete before showing loading
-                setTimeout(() => {
+    async function onChangeSelectExamples(){
+        if (exampleSelect) {
+            exampleSelect.addEventListener('change', async event => {
+                if (modalOpenGraphViewer) {
+                modalOpenGraphViewer.close();
+                }
+                const slug = event.target.value;
+                if (!slug) {
+                    exampleStatus.textContent = exampleMetadata.size
+                        ? 'Select an example to load it instantly.'
+                        : exampleStatus.textContent;
+                    updateExampleLink(null);
+                    return;
+                }
+    
+                if (!confirmGraphReplacement('example loading')) {
+                    exampleSelect.value = '';
+                    return;
+                }
+    
+                const meta = exampleMetadata.get(slug) || null;
+                updateExampleLink(meta);
+                const title = meta?.title || slug;
+                exampleStatus.textContent = `Loading ${title}...`;
+                setStatus(`Loading example graph: ${title}...`);
+    
+                // Hide mobile sidebar and show loading with proper timing
+                if (window.sidebarManager && window.sidebarManager.isMobile) {
+                    window.sidebarManager.hideMobileSidebar();
+                    // Give sidebar animation time to complete before showing loading
+                    setTimeout(() => {
+                        showLoadingInViewer('Loading Example', `Loading ${title}...`);
+                    }, 150);
+                } else {
                     showLoadingInViewer('Loading Example', `Loading ${title}...`);
-                }, 150);
-            } else {
-                showLoadingInViewer('Loading Example', `Loading ${title}...`);
-            }
-            if (!hasLoadedGraph) {
-                resetViewer();
-            }
-
-            exampleSelect.disabled = true;
-            try {
-                const response = await fetch(`/api/examples/${slug}`);
-                let payload;
+                }
+                if (!hasLoadedGraph) {
+                    resetViewer();
+                }
+    
+                exampleSelect.disabled = true;
                 try {
-                    payload = await response.json();
-                } catch (parseError) {
-                    if (response.ok) {
-                        throw new Error('Example payload is not valid JSON');
+                    const response = await fetch(`/api/examples/${slug}`);
+                    let payload;
+                    try {
+                        payload = await response.json();
+                    } catch (parseError) {
+                        if (response.ok) {
+                            throw new Error('Example payload is not valid JSON');
+                        }
+                        throw new Error(`Request failed (${response.status})`);
                     }
-                    throw new Error(`Request failed (${response.status})`);
+    
+                    if (!response.ok) {
+                        const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
+                        throw new Error(message);
+                    }
+    
+                    await handleGraphData(payload);
+                    exampleStatus.textContent = `Loaded ${title}.`;
+                } catch (error) {
+                    console.error('[kg-gen] Failed to load example graph', error);
+                    setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
+                    exampleStatus.textContent = 'Could not load the selected sample.';
+                    hideLoadingInViewer();
+                } finally {
+                    exampleSelect.disabled = exampleMetadata.size === 0;
                 }
-
-                if (!response.ok) {
-                    const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
-                    throw new Error(message);
-                }
-
-                await handleGraphData(payload);
-                exampleStatus.textContent = `Loaded ${title}.`;
-            } catch (error) {
-                console.error('[kg-gen] Failed to load example graph', error);
-                setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
-                exampleStatus.textContent = 'Could not load the selected sample.';
-                hideLoadingInViewer();
-            } finally {
-                exampleSelect.disabled = exampleMetadata.size === 0;
-            }
-        });
+            });
+        }
     }
 
     if (modelSelect) {
@@ -1639,7 +1670,8 @@
         });
     }
 
-    ['dragenter', 'dragover'].forEach(eventName => {
+   async function onChangeDropZone() {
+       ['dragenter', 'dragover'].forEach(eventName => {
         graphDropZone.addEventListener(eventName, event => {
             event.preventDefault();
             event.stopPropagation();
@@ -1662,23 +1694,28 @@
             handleGraphFile(files[0]);
         }
     });
+   }
 
-    generateButton.addEventListener('click', event => {
-        event.preventDefault();
-        generateGraph();
-    });
+    async function onChangeGenerateButton() {
+        generateButton.addEventListener('click', event => {
+            event.preventDefault();
+            generateGraph();
+        });
+    }
 
-    clearTextButton.addEventListener('click', event => {
-        event.preventDefault();
-        sourceText.value = '';
-        textFileInput.value = '';
-        // Update states after clearing
-        if (window.updateInputStates) {
-            window.updateInputStates();
-        }
-        // Note: Cached inputs (api key, model, chunk size, temperature, cluster, context) are preserved
-        setStatus('Text inputs cleared. Cached settings preserved.');
-    });
+    async function onChangeClearTextButton() {
+        clearTextButton.addEventListener('click', event => {
+            event.preventDefault();
+            sourceText.value = '';
+            textFileInput.value = '';
+            // Update states after clearing
+            if (window.updateInputStates) {
+                window.updateInputStates();
+            }
+            // Note: Cached inputs (api key, model, chunk size, temperature, cluster, context) are preserved
+            setStatus('Text inputs cleared. Cached settings preserved.');
+        });
+    }
 
     downloadButton.addEventListener('click', () => {
         if (!lastGraphPayload) {
@@ -1720,7 +1757,76 @@
     loadTemplate().catch(() => {
         /* Status already updated in loadTemplate */
     });
-    loadExamples().catch(() => {
+    loadInitialExampleGraph().catch(() => {
         /* Errors handled inside loadExamples */
     });
+
+    // Global functions for action buttons
+    window.openGraphViewer = function() {
+        // For now, we'll show a simple modal
+        modalOpenGraphViewer = new Modal('graphViewerModal', 'Open existing graph', null, {
+            selector: '#selectorModalTemplate',
+            width: '800px',
+            closable: true,
+            backdrop: true
+        });
+
+        graphFileInput = document.getElementById('graphFile');
+        graphDropZone = document.getElementById('graphDropZone');
+        exampleSelect = document.getElementById('exampleGraph');
+        exampleLink = document.getElementById('exampleLink');
+        exampleStatus = document.getElementById('exampleStatus');
+
+        graphDropZone.addEventListener('click', event => {
+            event.preventDefault();
+            graphFileInput.click();
+        });
+
+        graphFileInput.addEventListener('change', event => {
+            const [file] = event.target.files;
+            handleGraphFile(file);
+            graphFileInput.value = '';
+        });
+
+        graphDropZone.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                graphFileInput.click();
+            }
+        });
+
+        onChangeSelectExamples()
+        onChangeDropZone()
+        window.loadExamples();
+    };
+
+    window.generateFromText = function() {
+        // Add your text generation logic here
+        // For now, we'll show a simple modal
+        modalTextGenerator = new Modal('textGeneratorModal', 'Generate from text', null, {
+            selector: '#textGeneratorModalTemplate',
+            width: '600px',
+            closable: true,
+            backdrop: true
+        });
+
+
+        apiKeyInput = document.getElementById('apiKey');
+        modelSelect = document.getElementById('model');
+        chunkSizeInput = document.getElementById('chunkSize');
+        temperatureInput = document.getElementById('temperature');
+        clusterToggle = document.getElementById('clusterToggle');
+        contextInput = document.getElementById('context');
+        sourceText = document.getElementById('sourceText');
+        textFileInput = document.getElementById('textFile');
+        generateButton = document.getElementById('generateButton');
+        clearTextButton = document.getElementById('clearTextButton');
+
+        onChangeGenerateButton()
+        onChangeClearTextButton()
+
+    };
+
+    window.loadExamples = loadExamples;
 })();
+

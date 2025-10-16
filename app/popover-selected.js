@@ -1,8 +1,30 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const viewSelectionBtn = document.getElementById('viewSelectionBtn');
-    const selectionPopover = document.getElementById('selectionPopover');
-    const closePopover = document.getElementById('closePopover');
-    const selectionList = document.getElementById('selectionList');
+    const mainPopover = createPopover({
+        viewSelectionBtn: document.getElementById('viewSelectionBtn'),
+        selectionPopover: document.getElementById('selectionPopover'),
+        closePopover: document.getElementById('closePopover'),
+        selectionList: document.getElementById('selectionList'),
+    });
+
+    window.setMainPopoverContent = mainPopover.updateSelection;
+    
+    const mobilePopover = createPopover({
+        viewSelectionBtn: document.getElementById('viewSelectionBtnMobile'),
+        selectionPopover: document.getElementById('selectionPopoverMobile'),
+        closePopover: document.getElementById('closePopoverMobile'),
+        selectionList: document.getElementById('selectionListMobile'),
+    });
+
+    window.setMobilePopoverContent = mobilePopover.updateSelection;
+});
+
+function createPopover(config) {
+    const {
+        viewSelectionBtn,
+        selectionPopover,
+        closePopover,
+        selectionList,
+    } = config;
 
     if (!viewSelectionBtn || !selectionPopover || !selectionList) return;
 
@@ -109,6 +131,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.setSelectionPopoverRenderer = function(renderer) { customRenderer = typeof renderer === 'function' ? renderer : null; };
     window.openSelectionPopover = function(content) { if (content !== undefined) updateSelection(content); showPopover(); };
     window.closeSelectionPopover = function() { hidePopover(); };
-});
 
-
+    return {
+        updateSelection,
+    }
+}
