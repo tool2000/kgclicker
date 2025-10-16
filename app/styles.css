@@ -1084,6 +1084,25 @@ iframe[hidden] {
     pointer-events: none;
 }
 
+.keyboard-shortcuts {
+    position: absolute;
+    top: 10%;
+    right: 1rem;
+    width: fit-content;
+    margin: 0 auto;
+    padding: 5px 16px;
+    gap: 8px;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.80) 0%,
+        rgba(255, 255, 255, 0.55) 60%,
+        rgba(255, 255, 255, 0.00) 100%
+    );
+    backdrop-filter: saturate(1.2) blur(14px);
+    -webkit-backdrop-filter: saturate(1.2) blur(14px);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 16px;
+}
 .floating-actions {
     position: absolute;
     right: 0;
@@ -1222,6 +1241,10 @@ input[type="file"] {
 
     .floating-actions {
        bottom: 5%;
+    }
+
+    .keyboard-shortcuts {
+       display: none;
     }
 
     iframe {
@@ -1474,3 +1497,12 @@ input[type="file"] {
     }
 }
 
+kbd {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+}
