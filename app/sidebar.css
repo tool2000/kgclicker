@@ -54,13 +54,14 @@
 }
 
 .analysis-section-title {
-   /* text-decoration: underline;
+   text-decoration: underline;
    text-underline-offset: 4px;
    text-decoration-thickness: 2px;
-   text-decoration-color: #2563eb; */
+   text-decoration-style: dotted;
+   text-decoration-color: #5782df;
    font-size: 1rem;
    margin: 0 0 12px;
-   font-weight: 700;
+   font-weight: 800;
    text-transform: uppercase;
    letter-spacing: 0.04em;
    color: #1e293b;
@@ -204,8 +205,8 @@
 }
 
 .legend-swatch {
-    width: 12px;
-    height: 12px;
+    width: 8px;
+    height: 8px;
     border-radius: 999px;
     border: 1px solid rgba(15, 23, 42, 0.25);
 }
@@ -248,4 +249,27 @@
 
 .sidebar-header h1 {
     margin: 0;
+}
+
+.entity-item-degree {
+    font-size: 0.8rem;
+    border: 1px dashed #5782df;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-weight: 600;
+}
+
+.cluster-item-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .sidebar-header h1 {
+        font-size: 1.2rem;
+    }
+    .sidebar-header {
+      position: static;
+    }
 }

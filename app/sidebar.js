@@ -429,15 +429,19 @@ class SidebarManager {
         if (!container) return;
 
         if (!clusters.length) {
-            container.innerHTML = '<div class="meta">No cluster information provided.</div>';
+            container.innerHTML = `<div class="meta no-found-message-analysis">
+            <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 16">
+                <path fill-rule="evenodd" d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7c.19-.18.42-.28.7-.28c.28 0 .52.09.7.28c.18.19.28.42.28.7c0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69c-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31c-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69c.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31c.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68c0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7s-7-3.12-7-7s3.14-7 7-7z" fill="currentColor"/>
+            </svg>
+            No cluster information provided.</div>`;
             return;
         }
 
         container.innerHTML = clusters
             .map(cluster => `
-                <button class="list-item cluster-item" data-cluster="${cluster.id}" style="border-left-color: ${cluster.color};">
+                <button onClick="handleItemGraphClickHandler(event)" class="list-item cluster-item" data-cluster="${cluster.id}" style="border-left-color: ${cluster.color}; border-left-width: 2px;">
                     <div>
-                        <strong>${cluster.label}</strong>
+                        <p class="cluster-item-title">${cluster.label}</p>
                         <div class="meta">${cluster.size} members</div>
                     </div>
                     <span class="legend-swatch" style="background: ${cluster.color};"></span>
@@ -446,22 +450,35 @@ class SidebarManager {
             .join('');
     }
 
+    handleItemGraphClickHandler(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (window.sidebarManager && window.sidebarManager.isMobile) {
+            window.sidebarManager.hideMobileSidebar();
+        }
+        return false;
+    }
+
+
     updateTopEntities(topEntities) {
         const container = document.getElementById('topEntities');
         if (!container) return;
         const entityItems = topEntities.map(item => {
-            console.log(item);
             return `
-                <div class="list-item entity-item" data-id="${item.label}">
+                <div onClick="handleItemGraphClickHandler(event)" class="list-item entity-item" data-id="${item.label}">
                     <div>
                         <strong>${item.label}</strong>
                     </div>
-                    <div>${item.degree}</div>
+                    <div class="entity-item-degree">${item.degree}</div>
                 </div>
             `;
         });
 
-        container.innerHTML = entityItems.join('') || '<div class="meta">No entities</div>';
+        container.innerHTML = entityItems.join('') || `<div class="meta no-found-message-analysis">
+            <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 16">
+            <path fill-rule="evenodd" d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7c.19-.18.42-.28.7-.28c.28 0 .52.09.7.28c.18.19.28.42.28.7c0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69c-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31c-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69c.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31c.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68c0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7s-7-3.12-7-7s3.14-7 7-7z" fill="currentColor"/>
+           </svg>
+          No entities</div>`;
     }
 
     updateTopRelations(topRelations) {
@@ -469,7 +486,7 @@ class SidebarManager {
         if (!container) return;
 
         const relationItems = topRelations.map(item => `
-            <div class="list-item relation-item" data-predicate="${item.predicate}">
+            <div onClick="handleItemGraphClickHandler(event)" class="list-item relation-item" data-predicate="${item.predicate}">
                 <div>
                     <strong>${item.predicate}</strong>
                     <div class="meta">${item.count} relations</div>
@@ -478,7 +495,11 @@ class SidebarManager {
             </div>
         `);
 
-        container.innerHTML = relationItems.join('') || '<div class="meta">No relations</div>';
+        container.innerHTML = relationItems.join('') || `<div class="meta no-found-message-analysis">
+            <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 16">
+            <path fill-rule="evenodd" d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7c.19-.18.42-.28.7-.28c.28 0 .52.09.7.28c.18.19.28.42.28.7c0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69c-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31c-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69c.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31c.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68c0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7s-7-3.12-7-7s3.14-7 7-7z" fill="currentColor"/>
+           </svg>
+          No relations</div>`;
     }
 
     updateSelectionDetails(selection) {
@@ -602,7 +623,6 @@ class SidebarManager {
             };
 
             const handleSearch = debounce(() => {
-                console.log('handleSearch called with term:', searchInput.value.trim());
                 this.sendIframeMessage('search', { term: searchInput.value.trim() });
             }, 300);
 
@@ -665,4 +685,5 @@ class SidebarManager {
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.sidebarManager = new SidebarManager();
+    window.handleItemGraphClickHandler = window.sidebarManager.handleItemGraphClickHandler;
 });

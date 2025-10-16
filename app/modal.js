@@ -182,6 +182,14 @@ class Modal {
         if (window.reattachModalEventHandlers && typeof window.reattachModalEventHandlers === 'function') {
             window.reattachModalEventHandlers(container);
         }
+        
+        // Re-setup tab trap after content is inserted and event handlers are re-attached
+        if (this.isOpen) {
+            // Use setTimeout to ensure DOM is fully updated
+            setTimeout(() => {
+                this.setupTabTrap();
+            }, 0);
+        }
     }
 
     setupEvents() {
@@ -221,7 +229,72 @@ class Modal {
             if (this.options.backdrop) {
                 this.modalContainer.removeEventListener('click', this.backdropHandler);
             }
+            // Clean up tab trap
+            if (this.tabTrapHandler) {
+                document.removeEventListener('keydown', this.tabTrapHandler);
+            }
         };
+    }
+
+    getFocusableElements() {
+        // Get all focusable elements within the modal dialog
+        const focusableSelectors = [
+            'button:not([disabled])',
+            '[href]',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"]):not([disabled])'
+        ].join(', ');
+        
+        return Array.from(this.dialog.querySelectorAll(focusableSelectors))
+            .filter(element => {
+                // Additional checks for visibility
+                const style = window.getComputedStyle(element);
+                return style.display !== 'none' && 
+                       style.visibility !== 'hidden' && 
+                       !element.hasAttribute('aria-hidden');
+            });
+    }
+
+    setupTabTrap() {
+        // Remove existing tab trap handler if it exists
+        if (this.tabTrapHandler) {
+            document.removeEventListener('keydown', this.tabTrapHandler);
+        }
+
+        this.tabTrapHandler = (e) => {
+            if (e.key === 'Tab' && this.isOpen) {
+                const focusableElements = this.getFocusableElements();
+                
+                if (focusableElements.length === 0) {
+                    // No focusable elements, prevent default tab behavior
+                    e.preventDefault();
+                    return;
+                }
+
+                const firstElement = focusableElements[0];
+                const lastElement = focusableElements[focusableElements.length - 1];
+
+                if (e.shiftKey) {
+                    // Shift + Tab (backwards)
+                    if (document.activeElement === firstElement) {
+                        // Focus last element
+                        e.preventDefault();
+                        lastElement.focus();
+                    }
+                } else {
+                    // Tab (forwards)
+                    if (document.activeElement === lastElement) {
+                        // Focus first element
+                        e.preventDefault();
+                        firstElement.focus();
+                    }
+                }
+            }
+        };
+
+        document.addEventListener('keydown', this.tabTrapHandler);
     }
 
     show() {
@@ -231,8 +304,11 @@ class Modal {
         this.modalContainer.setAttribute('aria-hidden', 'false');
         this.isOpen = true;
 
+        // Setup tab trapping
+        this.setupTabTrap();
+
         // Focus management
-        const focusableElements = this.dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        const focusableElements = this.getFocusableElements();
         if (focusableElements.length > 0) {
             focusableElements[0].focus();
         } else {
@@ -252,6 +328,12 @@ class Modal {
         // Cleanup events
         if (this.cleanup) {
             this.cleanup();
+        }
+
+        // Clean up tab trap handler
+        if (this.tabTrapHandler) {
+            document.removeEventListener('keydown', this.tabTrapHandler);
+            this.tabTrapHandler = null;
         }
 
         // Hide modal
@@ -274,6 +356,11 @@ class Modal {
         if (contentContainer) {
             contentContainer.innerHTML = '';
             this.insertContent(contentContainer);
+            
+            // Re-setup tab trap after content update
+            if (this.isOpen) {
+                this.setupTabTrap();
+            }
         }
     }
 
