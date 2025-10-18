@@ -13,6 +13,7 @@ class SidebarManager {
         this.setupIframeMessaging();
         this.setupModeSwitching();
         this.setupMobileMenu();
+        this.setupDemoDialog();
         this.checkMobile();
     }
 
@@ -49,6 +50,84 @@ class SidebarManager {
         window.addEventListener('resize', () => {
             this.checkMobile();
         });
+
+        // Header global search wiring
+        const globalSearch = document.getElementById('globalSearch');
+        const globalSearchClear = document.getElementById('globalSearchClear');
+        const globalSearchMobile = document.getElementById('globalSearch-mobile');
+        const globalSearchClearMobile = document.getElementById('globalSearchClear-mobile');
+
+        const debounce = (func, wait) => {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        };
+
+        if (globalSearch) {
+
+
+            const handleSearch = debounce(() => {
+                this.sendIframeMessage('search', { term: globalSearch.value.trim() });
+            }, 300);
+
+            globalSearch.addEventListener('input', handleSearch);
+            globalSearch.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    globalSearch.value = '';
+                    this.sendIframeMessage('search', { term: '' });
+                }
+            });
+
+            if (globalSearchClear) {
+                const toggleClearVisibility = () => {
+                    globalSearchClear.style.opacity = globalSearch.value ? '1' : '0';
+                };
+                globalSearch.addEventListener('input', toggleClearVisibility);
+                toggleClearVisibility();
+            }
+        }
+
+        if (globalSearchMobile) {
+            const handleSearchMobile = debounce(() => {
+                this.sendIframeMessage('search', { term: globalSearchMobile.value.trim() });
+            }, 300);
+            globalSearchMobile.addEventListener('input', handleSearchMobile);
+            globalSearchMobile.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    globalSearchMobile.value = '';
+                    this.sendIframeMessage('search', { term: '' });
+                }
+            });
+            if (globalSearchClearMobile) {
+                const toggleClearVisibilityMobile = () => {
+                    globalSearchClearMobile.style.opacity = globalSearchMobile.value ? '1' : '0';
+                };
+                globalSearchMobile.addEventListener('input', toggleClearVisibilityMobile);
+                toggleClearVisibilityMobile();
+            }
+        }
+
+        if (globalSearchClear && globalSearch) {
+            globalSearchClear.addEventListener('click', () => {
+                globalSearch.value = '';
+                globalSearch.focus();
+                this.sendIframeMessage('search', { term: '' });
+            });
+        }
+
+        if (globalSearchClearMobile && globalSearchMobile) {
+            globalSearchClearMobile.addEventListener('click', () => {
+                globalSearchMobile.value = '';
+                globalSearchMobile.focus();
+                this.sendIframeMessage('search', { term: '' });
+            });
+        }
 
     }
 
@@ -185,20 +264,8 @@ class SidebarManager {
             tab.classList.toggle('active', tab.getAttribute('data-mode') === mode);
         });
 
-        // Update content visibility
-        if (mode === 'open') {
-            openContent.style.display = 'flex';
-            generateContent.style.display = 'none';
-            analysisContent.style.display = 'none';
-        } else if (mode === 'generate') {
-            openContent.style.display = 'none';
-            generateContent.style.display = 'flex';
-            analysisContent.style.display = 'none';
-        } else if (mode === 'analysis') {
-            openContent.style.display = 'none';
-            generateContent.style.display = 'none';
+       if (mode === 'analysis') {
             analysisContent.style.display = 'flex';
-
             // Auto-populate analysis if we have graph data
             if (this.lastGraphData) {
                 this.updateAnalysisContent(this.lastGraphData);
@@ -244,6 +311,9 @@ class SidebarManager {
         if (this.currentMode === 'analysis') {
             this.updateSelectionDetails(selection);
         }
+        
+        // Update popover with selection data
+        this.updatePopoverSelection(selection);
     }
 
     handleSearchChanged(searchTerm) {
@@ -359,15 +429,19 @@ class SidebarManager {
         if (!container) return;
 
         if (!clusters.length) {
-            container.innerHTML = '<div class="meta">No cluster information provided.</div>';
+            container.innerHTML = `<div class="meta no-found-message-analysis">
+            <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 16">
+                <path fill-rule="evenodd" d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7c.19-.18.42-.28.7-.28c.28 0 .52.09.7.28c.18.19.28.42.28.7c0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69c-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31c-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69c.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31c.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68c0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7s-7-3.12-7-7s3.14-7 7-7z" fill="currentColor"/>
+            </svg>
+            No cluster information provided.</div>`;
             return;
         }
 
         container.innerHTML = clusters
             .map(cluster => `
-                <button class="list-item cluster-item" data-cluster="${cluster.id}" style="border-left-color: ${cluster.color};">
+                <button onClick="handleItemGraphClickHandler(event)" class="list-item cluster-item" data-cluster="${cluster.id}" style="border-left-color: ${cluster.color}; border-left-width: 2px;">
                     <div>
-                        <strong>${cluster.label}</strong>
+                        <p class="cluster-item-title">${cluster.label}</p>
                         <div class="meta">${cluster.size} members</div>
                     </div>
                     <span class="legend-swatch" style="background: ${cluster.color};"></span>
@@ -376,21 +450,35 @@ class SidebarManager {
             .join('');
     }
 
+    handleItemGraphClickHandler(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (window.sidebarManager && window.sidebarManager.isMobile) {
+            window.sidebarManager.hideMobileSidebar();
+        }
+        return false;
+    }
+
+
     updateTopEntities(topEntities) {
         const container = document.getElementById('topEntities');
         if (!container) return;
         const entityItems = topEntities.map(item => {
             return `
-                <div class="list-item entity-item" data-id="${item.label}">
+                <div onClick="handleItemGraphClickHandler(event)" class="list-item entity-item" data-id="${item.label}">
                     <div>
                         <strong>${item.label}</strong>
                     </div>
-                    <div>${item.degree}</div>
+                    <div class="entity-item-degree">${item.degree}</div>
                 </div>
             `;
         });
 
-        container.innerHTML = entityItems.join('') || '<div class="meta">No entities</div>';
+        container.innerHTML = entityItems.join('') || `<div class="meta no-found-message-analysis">
+            <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 16">
+            <path fill-rule="evenodd" d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7c.19-.18.42-.28.7-.28c.28 0 .52.09.7.28c.18.19.28.42.28.7c0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69c-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31c-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69c.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31c.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68c0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7s-7-3.12-7-7s3.14-7 7-7z" fill="currentColor"/>
+           </svg>
+          No entities</div>`;
     }
 
     updateTopRelations(topRelations) {
@@ -398,7 +486,7 @@ class SidebarManager {
         if (!container) return;
 
         const relationItems = topRelations.map(item => `
-            <div class="list-item relation-item" data-predicate="${item.predicate}">
+            <div onClick="handleItemGraphClickHandler(event)" class="list-item relation-item" data-predicate="${item.predicate}">
                 <div>
                     <strong>${item.predicate}</strong>
                     <div class="meta">${item.count} relations</div>
@@ -407,7 +495,11 @@ class SidebarManager {
             </div>
         `);
 
-        container.innerHTML = relationItems.join('') || '<div class="meta">No relations</div>';
+        container.innerHTML = relationItems.join('') || `<div class="meta no-found-message-analysis">
+            <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 16">
+            <path fill-rule="evenodd" d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7c.19-.18.42-.28.7-.28c.28 0 .52.09.7.28c.18.19.28.42.28.7c0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69c-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31c-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69c.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31c.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68c0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7s-7-3.12-7-7s3.14-7 7-7z" fill="currentColor"/>
+           </svg>
+          No relations</div>`;
     }
 
     updateSelectionDetails(selection) {
@@ -444,9 +536,79 @@ class SidebarManager {
         }
     }
 
+    updatePopoverSelection(selection) {
+        // Check if popover functions are available
+        if (!selection) {
+            try {
+                window.setMainPopoverContent('Click a node or relation in the network to inspect details.');
+            } catch (error) {
+                console.error('Error setting main popover content:', error);
+            }
+            try {
+                window.setMobilePopoverContent(popoverContent);
+            } catch (error) {
+                console.error('Error setting mobile popover content:', error);
+            }
+
+            return;
+        }
+
+        // Create formatted content for the popover
+        let popoverContent = '';
+        
+        if (selection.type === 'node') {
+            const cluster = selection.cluster ? `Cluster: ${selection.cluster}` : 'Unclustered';
+            const neighbors = selection.neighbors && selection.neighbors.length ? 
+                selection.neighbors.slice(0, 3).join(', ') + (selection.neighbors.length > 3 ? '...' : '') : 'None';
+            
+            popoverContent = `
+                <p class="selection-item-title"><strong>${selection.label}</strong></p>
+                <div class="selection-item">
+                    <p class="selection-item-characteristics"><strong>Type:</strong> Node</p>
+                    <p class="selection-item-characteristics"><strong>Cluster:</strong> ${cluster}</p>
+                    <p class="selection-item-characteristics"><strong>Degree:</strong> ${selection.degree || 0}</p>
+                    <p class="selection-item-characteristics"><strong>Outgoing:</strong> ${selection.outdegree || 0}</p>
+                    <p class="selection-item-characteristics"><strong>Incoming:</strong> ${selection.indegree || 0}</p>
+                    <p class="selection-item-characteristics"><strong>Neighbors:</strong> ${neighbors}</p>
+                </div>
+            `;
+        } else if (selection.type === 'edge') {
+            const cluster = selection.cluster ? `Cluster: ${selection.cluster}` : 'Unclustered';
+            
+            popoverContent = `
+                <p class="selection-item-title"><strong>${selection.source} → ${selection.target}</strong></p>
+                <div class="selection-item">
+                    <p class="selection-item-characteristics"><strong>Type:</strong> Relation</p>
+                    <p class="selection-item-characteristics"><strong>Predicate:</strong> ${selection.predicate}</p>
+                    <p class="selection-item-characteristics"><strong>Cluster:</strong> ${cluster}</p>
+                </div>
+            `;
+        }
+        try {
+            window.setMainPopoverContent(popoverContent);
+        } catch (error) {
+            console.error('Error setting main popover content:', error);
+        }
+        try {
+            window.setMobilePopoverContent(popoverContent);
+        } catch (error) {
+            console.error('Error setting mobile popover content:', error);
+        }
+        
+        // Automatically open the popover when selection changes
+        // if (typeof window.openSelectionPopover === 'function') {
+        //     window.openSelectionPopover();
+        // }
+    }
+
+    setupDemoDialog() {
+        
+    }
+
+
     setupAnalysisInteractions() {
         // Setup search input
-        const searchInput = document.getElementById('searchInput');
+        const searchInput = document.getElementById('globalSearch');
         if (searchInput) {
             const debounce = (func, wait) => {
                 let timeout;
@@ -523,4 +685,5 @@ class SidebarManager {
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.sidebarManager = new SidebarManager();
+    window.handleItemGraphClickHandler = window.sidebarManager.handleItemGraphClickHandler;
 });

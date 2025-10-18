@@ -236,6 +236,7 @@
 
     function setStatus(message, type = 'info') {
         // no operation per now
+
     }
 
     function sanitizeGraphForBackend(rawGraph) {
@@ -677,23 +678,24 @@
     const downloadButton = document.getElementById('downloadGraph');
     const refreshButton = document.getElementById('refreshView');
 
-    const graphFileInput = document.getElementById('graphFile');
-    const graphDropZone = document.getElementById('graphDropZone');
-    const exampleSelect = document.getElementById('exampleGraph');
-    const exampleLink = document.getElementById('exampleLink');
-    const exampleStatus = document.getElementById('exampleStatus');
+    let graphFileInput = document.getElementById('graphFile');
+    let graphDropZone = document.getElementById('graphDropZone');
+    let exampleSelect = document.getElementById('exampleGraph');
+    let exampleLink = document.getElementById('exampleLink');
+    let exampleStatus = document.getElementById('exampleStatus');
+    let modalOpenGraphViewer = null;
 
-    const apiKeyInput = document.getElementById('apiKey');
-    const modelSelect = document.getElementById('model');
-    const chunkSizeInput = document.getElementById('chunkSize');
-    const temperatureInput = document.getElementById('temperature');
-    const clusterToggle = document.getElementById('clusterToggle');
-    const contextInput = document.getElementById('context');
-    const sourceText = document.getElementById('sourceText');
-    const textFileInput = document.getElementById('textFile');
+    let apiKeyInput = document.getElementById('apiKey');
+    let modelSelect = document.getElementById('model');
+    let chunkSizeInput = document.getElementById('chunkSize');
+    let temperatureInput = document.getElementById('temperature');
+    let clusterToggle = document.getElementById('clusterToggle');
+    let contextInput = document.getElementById('context');
+    let sourceText = document.getElementById('sourceText');
+    let textFileInput = document.getElementById('textFile');
 
-    const generateButton = document.getElementById('generateButton');
-    const clearTextButton = document.getElementById('clearTextButton');
+    let generateButton = document.getElementById('generateButton');
+    let clearTextButton = document.getElementById('clearTextButton');
 
     console.log('[kg-gen] Element refs:', {
         apiKeyInput: !!apiKeyInput,
@@ -828,7 +830,6 @@
         }
 
         // Enhanced mutual exclusion with visual feedback
-        const sourceTextHint = document.getElementById('sourceTextHint');
         const textFileHint = document.getElementById('textFileHint');
 
         window.updateInputStates = function updateInputStates() {
@@ -845,27 +846,11 @@
             }
 
             // Update hint visibility
-            if (sourceTextHint) {
-                if (hasFile) {
-                    sourceTextHint.classList.add('show');
-                } else {
-                    sourceTextHint.classList.remove('show');
-                }
-            }
             if (textFileHint) {
                 if (hasText) {
                     textFileHint.classList.add('show');
                 } else {
                     textFileHint.classList.remove('show');
-                }
-            }
-
-            // Update clear button style
-            if (clearTextButton) {
-                if (hasContent) {
-                    clearTextButton.disabled = false;
-                } else {
-                    clearTextButton.disabled = true;
                 }
             }
         }
@@ -1103,6 +1088,88 @@
         }
     }
 
+    async function loadInitialExampleGraph() {
+
+        document.getElementById('errorGraphMessage').classList.remove('show');
+        showFloatingActions();
+        try {
+            const response = await fetch('/api/examples');
+            const items = await response.json();
+            if (!response.ok) {
+                throw new Error(Array.isArray(items?.detail) ? items.detail.join('; ') : items?.detail || 'Failed to load sample list');
+            }
+
+            items.forEach(item => {
+                if (!item || !item.slug) {
+                    return;
+                }
+                exampleMetadata.set(item.slug, item);
+            });
+
+            if (exampleMetadata.size === 0) {
+                console.error('[kg-gen] No examples found');
+                return;
+            }
+
+            // Auto-select and load the first example
+            if (items.length > 0) {
+                const firstExample = items[0];
+                console.log('[kg-gen] Auto-loading first example:', firstExample);
+                // Show loading screen immediately
+                showLoadingInViewer('Loading Example', 'Loading sample graph...');
+
+                // Automatically load the first example
+                const meta = exampleMetadata.get(firstExample.slug);
+                // updateExampleLink(meta);
+                const title = meta?.title || firstExample.slug;
+                setStatus(`Loading example graph: ${title}...`);
+
+                if (!hasLoadedGraph) {
+                    resetViewer();
+                }
+
+                fetch(`/api/examples/${firstExample.slug}`)
+                    .then(async response => {
+                        let payload;
+                        try {
+                            payload = await response.json();
+                        } catch (parseError) {
+                            if (response.ok) {
+                                throw new Error('Example payload is not valid JSON');
+                            }
+                            throw new Error(`Request failed (${response.status})`);
+                        }
+
+                        if (!response.ok) {
+                            const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
+                            throw new Error(message);
+                        }
+
+                        return handleGraphData(payload);
+                    })
+                    .then(() => {
+                        // exampleStatus.textContent = `Loaded ${title}.`;
+                    })
+                    .catch(error => {
+                        console.error('[kg-gen] Failed to load example graph', error);
+                        setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
+                        // exampleStatus.textContent = 'Could not load the selected sample.';
+                        hideLoadingInViewer();
+                    })
+                    .finally(() => {
+                    });
+            }
+        } catch (error) {
+            document.getElementById('errorGraphMessage').classList.add('show');
+            hideFloatingActions();
+            console.error('[kg-gen] Failed to load example graphs', error);
+            setStatus(`Failed to load example graphs: ${error.message}`, 'error');
+            hideLoadingInViewer();
+            resetViewer();
+        }
+     
+    }
+
     async function loadExamples() {
         if (!exampleSelect) {
             return;
@@ -1170,53 +1237,12 @@
                 const firstExample = items[0];
                 console.log('[kg-gen] Auto-loading first example:', firstExample);
                 exampleSelect.value = firstExample.slug;
-
-                // Show loading screen immediately
-                showLoadingInViewer('Loading Example', 'Loading sample graph...');
-
                 // Automatically load the first example
                 const meta = exampleMetadata.get(firstExample.slug);
                 updateExampleLink(meta);
                 const title = meta?.title || firstExample.slug;
-                exampleStatus.textContent = `Loading ${title}...`;
+                exampleStatus.textContent = `Loaded ${title}.`;
                 setStatus(`Loading example graph: ${title}...`);
-
-                if (!hasLoadedGraph) {
-                    resetViewer();
-                }
-
-                exampleSelect.disabled = true;
-                fetch(`/api/examples/${firstExample.slug}`)
-                    .then(async response => {
-                        let payload;
-                        try {
-                            payload = await response.json();
-                        } catch (parseError) {
-                            if (response.ok) {
-                                throw new Error('Example payload is not valid JSON');
-                            }
-                            throw new Error(`Request failed (${response.status})`);
-                        }
-
-                        if (!response.ok) {
-                            const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
-                            throw new Error(message);
-                        }
-
-                        return handleGraphData(payload);
-                    })
-                    .then(() => {
-                        exampleStatus.textContent = `Loaded ${title}.`;
-                    })
-                    .catch(error => {
-                        console.error('[kg-gen] Failed to load example graph', error);
-                        setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
-                        exampleStatus.textContent = 'Could not load the selected sample.';
-                        hideLoadingInViewer();
-                    })
-                    .finally(() => {
-                        exampleSelect.disabled = exampleMetadata.size === 0;
-                    });
             }
         } catch (error) {
             console.error('[kg-gen] Failed to load example graphs', error);
@@ -1396,6 +1422,11 @@
         } catch (error) {
             remoteError = error;
             console.warn('[kg-gen] Falling back to local rendering', error);
+            document.getElementById('errorGraphMessage').classList.add('show');
+            hideFloatingActions();
+            setStatus(`Failed to load graph: ${error.message}`, 'error');
+            hideLoadingInViewer();
+            resetViewer();
         }
 
         try {
@@ -1407,12 +1438,17 @@
             console.error('[kg-gen] Local conversion failed', fallbackError);
             const combinedMessage = fallbackError?.message || remoteError?.message || 'Unknown error';
             setStatus(`Could not load graph: ${combinedMessage}`, 'error');
+            document.getElementById('errorGraphMessage').classList.add('show');
+            hideFloatingActions();
+            hideLoadingInViewer();
             resetViewer();
             throw fallbackError;
         }
     }
 
     async function handleGraphFile(file) {
+        showFloatingActions();
+
         if (!file) {
             return;
         }
@@ -1441,13 +1477,33 @@
             await handleGraphData(json);
         } catch (error) {
             console.error(error);
+            document.getElementById('errorGraphMessage').classList.add('show');
+            hideFloatingActions();
             setStatus(`Could not load graph: ${error.message}`, 'error');
+            hideFloatingActions();
             hideLoadingInViewer();
             resetViewer();
         }
     }
 
+    async function hideFloatingActions() {
+        const floatingActions = document.getElementById('floatingActions');
+        if (floatingActions) {
+            floatingActions.style.display = 'none';
+        }
+    }
+
+    async function showFloatingActions() {
+        const floatingActions = document.getElementById('floatingActions');
+        if (floatingActions) {
+            floatingActions.style.display = 'flex';
+        }
+    }
+
     async function generateGraph() {
+
+        hideGenerateError();
+
         const apiKey = apiKeyInput.value.trim();
         const pastedText = sourceText.value.trim();
         const textFile = textFileInput.files?.[0];
@@ -1455,16 +1511,23 @@
         const temperatureValue = temperatureInput.value.trim();
 
         if (!apiKey) {
-            setStatus('Enter your OpenAI API key to generate a graph.', 'error');
+            const errorMessage = 'Enter your OpenAI API key to generate a graph.';      
+            setStatus(errorMessage, 'error');
+            showGenerateError(errorMessage);
             return;
         }
 
         if (!pastedText && !textFile) {
-            setStatus('Provide some text or upload a .txt file.', 'error');
+            const errorMessage = 'Provide some text or upload a .txt file.';
+            setStatus(errorMessage, 'error');
+            showGenerateError(errorMessage);
             return;
         }
 
         if (!confirmGraphReplacement('graph generation')) {
+            const errorMessage = 'Please confirm the graph generation.';
+            setStatus(errorMessage, 'error');
+            showGenerateError(errorMessage);
             return;
         }
 
@@ -1535,10 +1598,13 @@
             }
 
             console.info('[kg-gen] Generation succeeded');
+            hideGenerateError();
             await renderView(payload.view, payload.graph);
         } catch (error) {
             console.error(error);
+            const errorMessage = 'Generation failed: ' + (error.message || 'Unknown error');
             setStatus(`Generation failed: ${error.message}`, 'error');
+            showGenerateError(errorMessage);
             hideLoadingInViewer();
         } finally {
             isGenerating = false;
@@ -1547,89 +1613,77 @@
         }
     }
 
-    graphDropZone.addEventListener('click', event => {
-        event.preventDefault();
-        graphFileInput.click();
-    });
 
-    graphDropZone.addEventListener('keydown', event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            graphFileInput.click();
-        }
-    });
-
-    graphFileInput.addEventListener('change', event => {
-        const [file] = event.target.files;
-        handleGraphFile(file);
-        graphFileInput.value = '';
-    });
-
-    if (exampleSelect) {
-        exampleSelect.addEventListener('change', async event => {
-            const slug = event.target.value;
-            if (!slug) {
-                exampleStatus.textContent = exampleMetadata.size
-                    ? 'Select an example to load it instantly.'
-                    : exampleStatus.textContent;
-                updateExampleLink(null);
-                return;
-            }
-
-            if (!confirmGraphReplacement('example loading')) {
-                exampleSelect.value = '';
-                return;
-            }
-
-            const meta = exampleMetadata.get(slug) || null;
-            updateExampleLink(meta);
-            const title = meta?.title || slug;
-            exampleStatus.textContent = `Loading ${title}...`;
-            setStatus(`Loading example graph: ${title}...`);
-
-            // Hide mobile sidebar and show loading with proper timing
-            if (window.sidebarManager && window.sidebarManager.isMobile) {
-                window.sidebarManager.hideMobileSidebar();
-                // Give sidebar animation time to complete before showing loading
-                setTimeout(() => {
+    async function onChangeSelectExamples(){
+        if (exampleSelect) {
+            exampleSelect.addEventListener('change', async event => {
+                if (modalOpenGraphViewer) {
+                modalOpenGraphViewer.close();
+                }
+                const slug = event.target.value;
+                if (!slug) {
+                    exampleStatus.textContent = exampleMetadata.size
+                        ? 'Select an example to load it instantly.'
+                        : exampleStatus.textContent;
+                    updateExampleLink(null);
+                    return;
+                }
+    
+                if (!confirmGraphReplacement('example loading')) {
+                    exampleSelect.value = '';
+                    return;
+                }
+    
+                const meta = exampleMetadata.get(slug) || null;
+                updateExampleLink(meta);
+                const title = meta?.title || slug;
+                exampleStatus.textContent = `Loading ${title}...`;
+                setStatus(`Loading example graph: ${title}...`);
+    
+                // Hide mobile sidebar and show loading with proper timing
+                if (window.sidebarManager && window.sidebarManager.isMobile) {
+                    window.sidebarManager.hideMobileSidebar();
+                    // Give sidebar animation time to complete before showing loading
+                    setTimeout(() => {
+                        showLoadingInViewer('Loading Example', `Loading ${title}...`);
+                    }, 150);
+                } else {
                     showLoadingInViewer('Loading Example', `Loading ${title}...`);
-                }, 150);
-            } else {
-                showLoadingInViewer('Loading Example', `Loading ${title}...`);
-            }
-            if (!hasLoadedGraph) {
-                resetViewer();
-            }
-
-            exampleSelect.disabled = true;
-            try {
-                const response = await fetch(`/api/examples/${slug}`);
-                let payload;
+                }
+                if (!hasLoadedGraph) {
+                    resetViewer();
+                }
+    
+                exampleSelect.disabled = true;
                 try {
-                    payload = await response.json();
-                } catch (parseError) {
-                    if (response.ok) {
-                        throw new Error('Example payload is not valid JSON');
+                    const response = await fetch(`/api/examples/${slug}`);
+                    let payload;
+                    try {
+                        payload = await response.json();
+                    } catch (parseError) {
+                        if (response.ok) {
+                            throw new Error('Example payload is not valid JSON');
+                        }
+                        throw new Error(`Request failed (${response.status})`);
                     }
-                    throw new Error(`Request failed (${response.status})`);
+    
+                    if (!response.ok) {
+                        const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
+                        throw new Error(message);
+                    }
+    
+                    await handleGraphData(payload);
+                    exampleStatus.textContent = `Loaded ${title}.`;
+                } catch (error) {
+                    console.error('[kg-gen] Failed to load example graph', error);
+                    setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
+                    exampleStatus.textContent = 'Could not load the selected sample.';
+                    hideLoadingInViewer();
+                } finally {
+                    exampleSelect.disabled = exampleMetadata.size === 0;
                 }
-
-                if (!response.ok) {
-                    const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
-                    throw new Error(message);
-                }
-
-                await handleGraphData(payload);
-                exampleStatus.textContent = `Loaded ${title}.`;
-            } catch (error) {
-                console.error('[kg-gen] Failed to load example graph', error);
-                setStatus(`Failed to load example '${title}': ${error.message}`, 'error');
-                exampleStatus.textContent = 'Could not load the selected sample.';
-                hideLoadingInViewer();
-            } finally {
-                exampleSelect.disabled = exampleMetadata.size === 0;
-            }
-        });
+            });
+        }
     }
 
     if (modelSelect) {
@@ -1639,7 +1693,8 @@
         });
     }
 
-    ['dragenter', 'dragover'].forEach(eventName => {
+   async function onChangeDropZone() {
+       ['dragenter', 'dragover'].forEach(eventName => {
         graphDropZone.addEventListener(eventName, event => {
             event.preventDefault();
             event.stopPropagation();
@@ -1662,23 +1717,37 @@
             handleGraphFile(files[0]);
         }
     });
+   }
 
-    generateButton.addEventListener('click', event => {
-        event.preventDefault();
-        generateGraph();
-    });
-
-    clearTextButton.addEventListener('click', event => {
-        event.preventDefault();
-        sourceText.value = '';
-        textFileInput.value = '';
-        // Update states after clearing
-        if (window.updateInputStates) {
-            window.updateInputStates();
+    async function onChangeGenerateButton() {
+        if (generateButton) {
+        generateButton.addEventListener('click', event => {
+            event.preventDefault();
+            generateGraph();
+        });
         }
-        // Note: Cached inputs (api key, model, chunk size, temperature, cluster, context) are preserved
-        setStatus('Text inputs cleared. Cached settings preserved.');
-    });
+    }
+
+    async function onChangeClearTextButton() {
+        clearTextButton.addEventListener('click', event => {
+            event.preventDefault();
+            sourceText.value = '';
+            textFileInput.value = '';
+            // Reset drop zone text
+            updateDropZoneText(null);
+            // Reset textarea state
+            toggleTextareaState(false);
+            toggleDropZoneState(false);
+            // Hide error message
+            hideGenerateError();
+            // Update states after clearing
+            if (window.updateInputStates) {
+                window.updateInputStates();
+            }
+            // Note: Cached inputs (api key, model, chunk size, temperature, cluster, context) are preserved
+            setStatus('Text inputs cleared. Cached settings preserved.');
+        });
+    }
 
     downloadButton.addEventListener('click', () => {
         if (!lastGraphPayload) {
@@ -1720,7 +1789,466 @@
     loadTemplate().catch(() => {
         /* Status already updated in loadTemplate */
     });
-    loadExamples().catch(() => {
+    loadInitialExampleGraph().catch(() => {
         /* Errors handled inside loadExamples */
     });
+
+    // Global functions for action buttons
+    window.openGraphViewer = function() {
+        // For now, we'll show a simple modal
+        modalOpenGraphViewer = new Modal('graphViewerModal', 'Open existing graph', null, {
+            selector: '#selectorModalTemplate',
+            width: '800px',
+            closable: true,
+            backdrop: true
+        });
+
+        graphFileInput = document.getElementById('graphFile');
+        graphDropZone = document.getElementById('graphDropZone');
+        exampleSelect = document.getElementById('exampleGraph');
+        exampleLink = document.getElementById('exampleLink');
+        exampleStatus = document.getElementById('exampleStatus');
+
+        graphDropZone.addEventListener('click', event => {
+            event.preventDefault();
+            graphFileInput.click();
+        });
+
+        graphFileInput.addEventListener('change', event => {
+            const [file] = event.target.files;
+            handleGraphFile(file);
+            graphFileInput.value = '';
+            modalOpenGraphViewer.close();
+        });
+
+        graphDropZone.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                graphFileInput.click();
+            }
+        });
+
+        onChangeSelectExamples()
+        onChangeDropZone()
+        window.loadExamples();
+    };
+
+     // Error message functions
+     function showGenerateError(message) {
+        const errorMessage = document.getElementById('generateErrorMessage');
+        const errorText = document.getElementById('generateErrorText');
+        
+        if (errorMessage && errorText) {
+            errorText.textContent = message;
+            errorMessage.style.display = 'flex';
+            errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    function hideGenerateError() {
+        const errorMessage = document.getElementById('generateErrorMessage');
+        if (errorMessage) {
+            errorMessage.style.display = 'none';
+        }
+    }
+
+     function updateDropZoneText(filename) {
+        const dropZoneText = document.getElementById('dropZoneText');
+        const dropZoneHint = document.getElementById('dropZoneHint');
+        const fileRemoveBtn = document.getElementById('fileRemoveBtn');
+        
+        if (dropZoneText && dropZoneHint && fileRemoveBtn) {
+            if (filename) {
+                dropZoneText.textContent = `Loaded ${filename}`;
+                dropZoneHint.textContent = 'Click to choose a different file';
+                fileRemoveBtn.style.display = 'flex';
+            } else {
+                dropZoneText.textContent = 'Drop file here or click to choose';
+                dropZoneHint.textContent = 'Accepts .txt files';
+                fileRemoveBtn.style.display = 'none';
+            }
+        }
+    }
+
+        // Function to toggle drop zone disabled state
+        function toggleDropZoneState(hasText) {
+        const dropZone = document.getElementById('graphDropZoneText');
+        const dropZoneDisabledMessage = document.getElementById('dropZoneDisabledMessage');
+        const textFileInput = document.getElementById('textFile');
+        
+        if (dropZone && dropZoneDisabledMessage) {
+            if (hasText) {
+                // Disable drop zone
+                dropZone.classList.add('disabled');
+                dropZone.setAttribute('tabindex', '-1');
+                dropZone.setAttribute('aria-disabled', 'true');
+                dropZoneDisabledMessage.style.display = 'block';
+                
+                // Clear any existing file
+                if (textFileInput) {
+                    textFileInput.value = '';
+                    updateDropZoneText(null);
+                }
+            } else {
+                // Enable drop zone
+                dropZone.classList.remove('disabled');
+                dropZone.setAttribute('tabindex', '0');
+                dropZone.setAttribute('aria-disabled', 'false');
+                dropZoneDisabledMessage.style.display = 'none';
+            }
+        }
+    }
+
+        // Function to toggle textarea disabled state
+    function toggleTextareaState(hasFile) {
+        const textarea = document.getElementById('sourceText');
+        const textareaDisabledMessage = document.getElementById('sourceTextDisabledMessage');
+        
+        if (textarea && textareaDisabledMessage) {
+            if (hasFile) {
+                // Disable textarea
+                textarea.disabled = true;
+                textarea.setAttribute('aria-disabled', 'true');
+                textareaDisabledMessage.style.display = 'block';
+                
+                // Clear any existing text
+                textarea.value = '';
+            } else {
+                // Enable textarea
+                textarea.disabled = false;
+                textarea.removeAttribute('aria-disabled');
+                textareaDisabledMessage.style.display = 'none';
+            }
+        }
+    }
+
+    window.generateFromText = function() {
+        // Add your text generation logic here
+        // For now, we'll show a simple modal
+        modalTextGenerator = new Modal('textGeneratorModal', 'Generate from text', null, {
+            selector: '#textGeneratorModalTemplate',
+            width: '800px',
+            closable: true,
+            backdrop: true
+        });
+
+
+        apiKeyInput = document.getElementById('apiKey');
+        modelSelect = document.getElementById('model');
+        chunkSizeInput = document.getElementById('chunkSize');
+        temperatureInput = document.getElementById('temperature');
+        clusterToggle = document.getElementById('clusterToggle');
+        contextInput = document.getElementById('context');
+        sourceText = document.getElementById('sourceText');
+        textFileInput = document.getElementById('textFile');
+        generateButton = document.getElementById('generateButton');
+        clearTextButton = document.getElementById('clearTextButton');
+        
+
+        onChangeGenerateButton()
+        onChangeClearTextButton()
+
+       
+
+        // Function to remove selected file
+        function removeSelectedFile() {
+            const textFileInput = document.getElementById('textFile');
+            if (textFileInput) {
+                textFileInput.value = '';
+                updateDropZoneText(null);
+                toggleTextareaState(false);
+            }
+        }
+
+        // Initialize text file drop zone
+        const graphDropZoneText = document.getElementById('graphDropZoneText');
+        const fileRemoveBtn = document.getElementById('fileRemoveBtn');
+        
+        // Add event listener for remove button
+        if (fileRemoveBtn) {
+            fileRemoveBtn.addEventListener('click', function(event) {
+                event.preventDefault();
+                event.stopPropagation(); // Prevent triggering drop zone click
+                removeSelectedFile();
+            });
+        }
+        
+        if (graphDropZoneText) {
+            // Click event for text file drop zone
+            graphDropZoneText.addEventListener('click', event => {
+                event.preventDefault();
+                if (!graphDropZoneText.classList.contains('disabled')) {
+                    textFileInput.click();
+                }
+            });
+
+            // Keyboard event for text file drop zone
+            graphDropZoneText.addEventListener('keydown', event => {
+                if ((event.key === 'Enter' || event.key === ' ') && !graphDropZoneText.classList.contains('disabled')) {
+                    event.preventDefault();
+                    textFileInput.click();
+                }
+            });
+
+            // Drag and drop events for text file
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                graphDropZoneText.addEventListener(eventName, event => {
+                    if (!graphDropZoneText.classList.contains('disabled')) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                });
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                graphDropZoneText.addEventListener(eventName, event => {
+                    if (!graphDropZoneText.classList.contains('disabled')) {
+                        graphDropZoneText.classList.add('dragover');
+                    }
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                graphDropZoneText.addEventListener(eventName, event => {
+                    graphDropZoneText.classList.remove('dragover');
+                });
+            });
+
+            graphDropZoneText.addEventListener('drop', event => {
+                if (!graphDropZoneText.classList.contains('disabled')) {
+                    const [file] = event.dataTransfer.files;
+                    if (file && file.type === 'text/plain') {
+                        // Create a FileList-like object and assign it to the input
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        textFileInput.files = dataTransfer.files;
+                        
+                        // Update drop zone text to show loaded filename
+                        updateDropZoneText(file.name);
+                        
+                        // Disable textarea
+                        toggleTextareaState(true);
+                        
+                        // Trigger change event to update the UI
+                        textFileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            });
+        }
+
+        // Add change event listener for text file input
+        if (textFileInput) {
+            textFileInput.addEventListener('change', event => {
+                const file = event.target.files[0];
+                if (file) {
+                    updateDropZoneText(file.name);
+                    toggleTextareaState(true);
+                } else {
+                    updateDropZoneText(null);
+                    toggleTextareaState(false);
+                }
+            });
+        }
+
+        // Add event listeners for textarea to control drop zone state
+        if (sourceText) {
+            sourceText.addEventListener('input', function() {
+                const hasText = this.value.trim().length > 0;
+                toggleDropZoneState(hasText);
+            });
+            
+            // Check initial state
+            const hasText = sourceText.value.trim().length > 0;
+            toggleDropZoneState(hasText);
+        }
+
+       
+
+        // Password toggle functionality
+        const passwordToggle = document.getElementById('passwordToggle');
+        
+        if (passwordToggle && apiKeyInput) {
+            passwordToggle.addEventListener('click', function() {
+                const isPassword = apiKeyInput.type === 'password';
+                apiKeyInput.type = isPassword ? 'text' : 'password';
+                
+                // Update the eye icon
+                const eyeIcon = passwordToggle.querySelector('.eye-icon');
+                if (eyeIcon) {
+                    if (isPassword) {
+                        // Show eye with slash (hidden)
+                        eyeIcon.innerHTML = '<path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z" fill="currentColor"/>';
+                        passwordToggle.setAttribute('aria-label', 'Hide password');
+                    } else {
+                        // Show regular eye (visible)
+                        eyeIcon.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>';
+                        passwordToggle.setAttribute('aria-label', 'Show password');
+                    }
+                }
+            });
+        }
+
+
+    };
+
+    // Global search shortcut functionality
+    function initializeSearchShortcut() {
+        function handleSearchShortcut(event) {
+            // Check for Cmd+F (Mac) or Ctrl+F (Windows/Linux)
+            if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
+                event.preventDefault(); // Prevent browser's default find dialog
+                
+                // Try to find search inputs in parent window first
+                let searchInput = null;
+                let mobileSearchInput = null;
+                
+                try {
+                    // Access parent window's document (for iframe scenarios)
+                    if (window.parent && window.parent.document) {
+                        searchInput = window.parent.document.getElementById('globalSearch');
+                        mobileSearchInput = window.parent.document.getElementById('globalSearch-mobile');
+                    }
+                } catch (e) {
+                    // Cross-origin iframe, can't access parent
+                }
+                
+                // If not found in parent, try current document
+                if (!searchInput) {
+                    searchInput = document.getElementById('globalSearch');
+                }
+                if (!mobileSearchInput) {
+                    mobileSearchInput = document.getElementById('globalSearch-mobile');
+                }
+                
+                // Try desktop search first, then mobile
+                if (searchInput && !searchInput.disabled) {
+                    searchInput.focus();
+                    searchInput.select(); // Select all text for easy replacement
+                } else if (mobileSearchInput && !mobileSearchInput.disabled) {
+                    mobileSearchInput.focus();
+                    mobileSearchInput.select();
+                }
+            }
+        }
+        
+        // Add event listener to current document
+        document.addEventListener('keydown', handleSearchShortcut);
+        
+        // Also add to parent document if we're in an iframe
+        try {
+            if (window.parent && window.parent !== window && window.parent.document) {
+                window.parent.document.addEventListener('keydown', handleSearchShortcut);
+            }
+        } catch (e) {
+            // Cross-origin iframe, can't access parent document
+        }
+    }
+
+    // Initialize search shortcut and iframe handling when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeSearchShortcut();
+        setupIframeKeyboardHandling();
+    });
+
+    // Also initialize immediately in case DOM is already loaded
+    if (document.readyState === 'loading') {
+        // DOM is still loading, the DOMContentLoaded event will handle it
+    } else {
+        // DOM is already loaded
+        initializeSearchShortcut();
+        setupIframeKeyboardHandling();
+    }
+
+    // Enhanced iframe focus management and keyboard event handling
+    function setupIframeKeyboardHandling() {
+        const iframe = document.getElementById('viewer');
+        
+        if (!iframe) {
+            console.warn('[kg-gen] iframe with id "viewer" not found');
+            return;
+        }
+
+        // Ensure the iframe can be focused
+        iframe.removeAttribute('hidden');
+        iframe.setAttribute('tabindex', '-1');
+        
+        iframe.addEventListener('load', () => {
+            try {
+                // Access iframe's document (requires same-origin)
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                
+                if (doc) {
+                    // Add keyboard event listener to iframe's document
+                    doc.addEventListener('keydown', (e) => {
+                        // Handle Ctrl+F / Cmd+F for search
+                        const isCtrlF = (e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'f');
+                        if (isCtrlF) {
+                            e.preventDefault();
+                            // Try to focus search inputs in parent window
+                            const searchInput = document.getElementById('globalSearch');
+                            const mobileSearchInput = document.getElementById('globalSearch-mobile');
+                            
+                            if (searchInput && !searchInput.disabled) {
+                                searchInput.focus();
+                                searchInput.select();
+                            } else if (mobileSearchInput && !mobileSearchInput.disabled) {
+                                mobileSearchInput.focus();
+                                mobileSearchInput.select();
+                            }
+                            return false;
+                        }
+                        
+                        // Handle Escape key to close any open modals
+                        if (e.key === 'Escape') {
+                            // Let the event bubble up to parent window
+                            // The modal system will handle closing modals
+                        }
+                        
+                        // Handle Tab key for focus management within iframe
+                        if (e.key === 'Tab') {
+                            // Let the iframe handle its own tab navigation
+                        }
+                    }, { capture: true });
+                    
+                    // Focus the iframe when it loads
+                    iframe.focus();
+                    
+                    console.log('[kg-gen] iframe keyboard handling setup complete');
+                } else {
+                    console.warn('[kg-gen] Cannot access iframe content - may be cross-origin');
+                }
+            } catch (error) {
+                console.warn('[kg-gen] Error setting up iframe keyboard handling:', error);
+                console.warn('[kg-gen] This is normal if the iframe content is cross-origin');
+            }
+        });
+        
+        // Also handle focus when iframe becomes visible
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'hidden') {
+                    const iframe = mutation.target;
+                    if (!iframe.hasAttribute('hidden')) {
+                        console.log('[kg-gen] iframe became visible, focusing');
+                        setTimeout(() => {
+                            iframe.focus();
+                        }, 100);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(iframe, { attributes: true });
+        
+        console.log('[kg-gen] iframe focus management setup complete');
+    }
+
+    window.loadExamples = loadExamples;
+    window.loadInitialExampleGraph = loadInitialExampleGraph;
+    window.hideGenerateError = hideGenerateError;
+    window.showGenerateError = showGenerateError;
+    window.updateDropZoneText = updateDropZoneText;
+    window.toggleDropZoneState = toggleDropZoneState;
+    window.toggleTextareaState = toggleTextareaState;
 })();
+
