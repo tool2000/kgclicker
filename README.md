@@ -70,7 +70,7 @@ graph_1 = kg.generate(
 KGGen.visualize(graph, output_path, open_in_browser=True)
 ```
 
-![viz-tool](https://github.com/stair-lab/kg-gen/tree/main/images/viz-tool.png)
+![viz-tool](images/viz-tool.png)
 
 ### More Examples - chunking, clustering, passing in a messages array 
 
