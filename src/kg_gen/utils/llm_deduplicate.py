@@ -17,10 +17,11 @@ class LLMDeduplicate:
     edges: list[str]
     node_clusters: list[list[str]]
     edge_clusters: list[list[str]]
+    retrieval_model: SentenceTransformer
 
     logger: logging.Logger = logging.getLogger(__name__)
 
-    def __init__(self, graph: Graph):
+    def __init__(self, retrieval_model: SentenceTransformer, graph: Graph):
         """
         Initialize KG-assisted RAG with cached embeddings, BM25 tokens, and text chunk store.
         """
@@ -29,25 +30,18 @@ class LLMDeduplicate:
         self.edges = list(graph.edges)
         self.node_clusters = graph.entity_clusters or []
         self.edge_clusters = graph.edge_clusters or []
+        self.retrieval_model = retrieval_model
 
         # Embeddings and BM25 tokens for nodes
-        self.node_encoder = SentenceTransformer(
-            'sentence-transformers/all-mpnet-base-v2')
-        self.node_embeddings = self.node_encoder.encode(
-            self.nodes, show_progress_bar=True)
-        self.node_bm25_tokenized = [
-            text.lower().split() for text in self.nodes]
+        self.node_embeddings = retrieval_model.encode(self.nodes, show_progress_bar=True)
+        self.node_bm25_tokenized = [text.lower().split() for text in self.nodes]
 
         # Always rebuild BM25 from tokens (it's fast and simpler than serializing the object)
         self.node_bm25 = BM25Okapi(self.node_bm25_tokenized)
 
         # Embeddings and BM25 tokens for edges
-        self.edge_encoder = SentenceTransformer(
-            'sentence-transformers/all-mpnet-base-v2')
-        self.edge_embeddings = self.edge_encoder.encode(
-            self.edges, show_progress_bar=True)
-        self.edge_bm25_tokenized = [
-            text.lower().split() for text in self.edges]
+        self.edge_embeddings = retrieval_model.encode(self.edges, show_progress_bar=True)
+        self.edge_bm25_tokenized = [text.lower().split() for text in self.edges]
 
         # Always rebuild BM25 from tokens
         self.edge_bm25 = BM25Okapi(self.edge_bm25_tokenized)
@@ -63,8 +57,7 @@ class LLMDeduplicate:
             query_tokens) if type == "node" else self.edge_bm25.get_scores(query_tokens)
 
         # Embedding
-        encoder = self.node_encoder if type == "node" else self.edge_encoder
-        query_embedding = encoder.encode([query], show_progress_bar=False)
+        query_embedding = self.retrieval_model.encode([query], show_progress_bar=False)
         embeddings = self.node_embeddings if type == "node" else self.edge_embeddings
         embedding_scores = cosine_similarity(
             query_embedding, embeddings).flatten()

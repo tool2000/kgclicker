@@ -279,7 +279,9 @@ class KGGen:
             )
 
         with dspy.context(lm=self.lm):
-            return dedup_cluster_graph(graph)
+            if self.retrieval_model is None:
+                raise ValueError("No retrieval model provided")
+            return dedup_cluster_graph(retrieval_model=self.retrieval_model, graph=graph)
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
         # Initialize empty sets for combined graph
