@@ -8,7 +8,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 import numpy as np
-import os
 from sklearn.cluster import KMeans
 
 
@@ -225,10 +224,6 @@ class LLMDeduplicate:
         return items, item_clusters
 
     def deduplicate(self) -> Graph:
-        lm = dspy.LM(model="gemini/gemini-2.0-flash",
-                     api_key=os.getenv("GOOGLE_API_KEY"))
-        dspy.configure(lm=lm)
-
         # Check if intermediate progress exists and load it
         entities = set()
         edges = set()
