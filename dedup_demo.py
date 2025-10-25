@@ -2,6 +2,8 @@ import os
 import time
 import logging
 from dotenv import load_dotenv
+import dspy
+from sentence_transformers import SentenceTransformer
 import typer
 
 from kg_gen.utils.llm_deduplicate import LLMDeduplicate
@@ -10,8 +12,14 @@ from kg_gen.models import Graph
 
 app = typer.Typer()
 
+
 @app.command()
-def main(graph_path: str, log_level: str = "INFO"):
+def main(
+    graph_path: str,
+    retrieval_model: str = "sentence-transformers/all-mpnet-base-v2",
+    temperature: float = 1.0,
+    log_level: str = "INFO"
+):
     logging.basicConfig(level=log_level)
     logger = logging.getLogger(__name__)
 
@@ -20,6 +28,14 @@ def main(graph_path: str, log_level: str = "INFO"):
 
     # Create the output folder
     os.makedirs("output", exist_ok=True)
+
+    lm = dspy.LM(
+        model=os.environ.get("LLM_MODEL"),
+        api_key=os.environ.get("LLM_API_KEY"),
+        temperature=temperature,
+    )
+
+    transformer_model = SentenceTransformer(retrieval_model)
 
     # Deduplicate the graph using semantic hashing
     start_time = time.time()
@@ -30,7 +46,7 @@ def main(graph_path: str, log_level: str = "INFO"):
 
     # Deduplicate the original graph using LLM
     start_time = time.time()
-    llm_deduplicate = LLMDeduplicate(graph)
+    llm_deduplicate = LLMDeduplicate(transformer_model, lm, graph)
     start_cluster_time = time.time()
     llm_deduplicate.cluster()
     end_cluster_time = time.time()
@@ -42,7 +58,7 @@ def main(graph_path: str, log_level: str = "INFO"):
 
     # Deduplicate the semantic deduplicated graph using LLM
     start_time = time.time()
-    llm_deduplicate = LLMDeduplicate(deduplicated_graph)
+    llm_deduplicate = LLMDeduplicate(transformer_model, lm, deduplicated_graph)
     start_cluster_time = time.time()
     llm_deduplicate.cluster()
     end_cluster_time = time.time()
@@ -58,8 +74,11 @@ def main(graph_path: str, log_level: str = "INFO"):
     llm_deduplicated_graph2.stats("LLM deduplicated deduplicated graph")
 
     logger.info("Semantic hashing time: %s seconds", semhash_time)
-    logger.info("LLM time: %s seconds, cluster time: %s seconds", llm_time, cluster_time)
-    logger.info("LLM time2: %s seconds, cluster time2: %s seconds", llm_time2, cluster_time2)
+    logger.info("LLM time: %s seconds, cluster time: %s seconds",
+                llm_time, cluster_time)
+    logger.info("LLM time2: %s seconds, cluster time2: %s seconds",
+                llm_time2, cluster_time2)
+
 
 if __name__ == "__main__":
     app()
