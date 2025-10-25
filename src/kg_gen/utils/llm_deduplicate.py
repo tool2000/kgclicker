@@ -18,10 +18,11 @@ class LLMDeduplicate:
     node_clusters: list[list[str]]
     edge_clusters: list[list[str]]
     retrieval_model: SentenceTransformer
+    lm: dspy.LM
 
     logger: logging.Logger = logging.getLogger(__name__)
 
-    def __init__(self, retrieval_model: SentenceTransformer, graph: Graph):
+    def __init__(self, retrieval_model: SentenceTransformer, lm: dspy.LM, graph: Graph):
         """
         Initialize KG-assisted RAG with cached embeddings, BM25 tokens, and text chunk store.
         """
@@ -31,6 +32,7 @@ class LLMDeduplicate:
         self.node_clusters = graph.entity_clusters or []
         self.edge_clusters = graph.edge_clusters or []
         self.retrieval_model = retrieval_model
+        self.lm = lm
 
         # Embeddings and BM25 tokens for nodes
         self.node_embeddings = retrieval_model.encode(self.nodes, show_progress_bar=True)
@@ -45,6 +47,8 @@ class LLMDeduplicate:
 
         # Always rebuild BM25 from tokens
         self.edge_bm25 = BM25Okapi(self.edge_bm25_tokenized)
+
+        dspy.configure(lm=lm)
 
     def get_relevant_items(self, query: str, top_k: int = 50, type: str = "node") -> list[str]:
         """
@@ -190,6 +194,8 @@ class LLMDeduplicate:
                 alias: str = dspy.OutputField(
                     description=f"Best {singular_type} name to represent the duplicates, ideally from the {plural_type} set")
 
+            
+            # with dspy.context(lm=self.lm):
             deduplicate = dspy.Predict(Deduplicate)
             result = deduplicate(item=item, set=relevant_items)
             items.add(result.alias)
