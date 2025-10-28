@@ -21,3 +21,6 @@ experiments/MINE/answers.json
 experiments/MINE/essays.json
 output
 logs
+experiments/MINE/faiss-scikit/faiss
+experiments/MINE/faiss-scikit/scikit-learn
+experiments/MINE/faiss-scikit/*.zip
