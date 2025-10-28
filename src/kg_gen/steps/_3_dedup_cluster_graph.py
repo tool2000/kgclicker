@@ -5,8 +5,9 @@ from sentence_transformers import SentenceTransformer
 import dspy
 
 
-def dedup_cluster_graph(retrieval_model: SentenceTransformer, lm: dspy.LM, graph: Graph) -> Graph:
-
+def dedup_cluster_graph(
+    retrieval_model: SentenceTransformer, lm: dspy.LM, graph: Graph
+) -> Graph:
     # Deduplicate the graph using semantic hashing
     deduplicated_graph = deduplicate_graph(graph)
 

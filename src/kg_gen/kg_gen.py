@@ -280,7 +280,9 @@ class KGGen:
 
         if self.retrieval_model is None:
             raise ValueError("No retrieval model provided")
-        return dedup_cluster_graph(retrieval_model=self.retrieval_model , lm=self.lm, graph=graph)
+        return dedup_cluster_graph(
+            retrieval_model=self.retrieval_model, lm=self.lm, graph=graph
+        )
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
         # Initialize empty sets for combined graph

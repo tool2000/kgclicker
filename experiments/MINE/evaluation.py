@@ -15,21 +15,24 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 load_dotenv()
 
 # Configure DSPy with OpenAI
-lm = dspy.LM(model=os.getenv("LLM_MODEL"),
-             api_key=os.getenv("LLM_API_KEY"),
-             temperature=1.0,
-             max_tokens=16000)
+lm = dspy.LM(
+    model=os.getenv("LLM_MODEL"),
+    api_key=os.getenv("LLM_API_KEY"),
+    temperature=1.0,
+    max_tokens=16000,
+)
 dspy.configure(lm=lm)
+
 
 # Define DSPy signature for evaluation
 class EvaluateResponse(dspy.Signature):
     """Determine whether the context contains the information stated in the correct answer. Respond with 1 if yes, 0 if no."""
 
     context: str = dspy.InputField(desc="The context to evaluate")
-    correct_answer: str = dspy.InputField(
-        desc="The correct answer to check for")
+    correct_answer: str = dspy.InputField(desc="The correct answer to check for")
     evaluation: int = dspy.OutputField(
-        desc="1 if context contains the correct answer, 0 otherwise")
+        desc="1 if context contains the correct answer, 0 otherwise"
+    )
 
 
 # Create DSPy module for evaluation
@@ -87,8 +90,7 @@ def evaluate_accuracy(
 
 def main(evaluation_model: Literal["local", "kggen", "graphrag", "openie"] = "local"):
     # Load data from Hugging Face (with local fallback)
-    dataset = load_dataset(
-        "josancamon/kg-gen-MINE-evaluation-dataset")["train"]
+    dataset = load_dataset("josancamon/kg-gen-MINE-evaluation-dataset")["train"]
     queries = [item["generated_queries"] for item in dataset.to_list()]
 
     if evaluation_model == "local":
@@ -122,7 +124,7 @@ def main(evaluation_model: Literal["local", "kggen", "graphrag", "openie"] = "lo
                 )
             else:
                 graph = kggen.from_dict(kg)
-            
+
             nxGraph = kggen.to_nx(graph)
             node_embeddings, _ = kggen.generate_embeddings(nxGraph)
             evaluate_accuracy(
@@ -133,8 +135,7 @@ def main(evaluation_model: Literal["local", "kggen", "graphrag", "openie"] = "lo
                 output_file,
             )
         except Exception as e:
-            print(
-                f"Error processing file {output_file}: {str(e)}, skipping...")
+            print(f"Error processing file {output_file}: {str(e)}, skipping...")
 
 
 if __name__ == "__main__":

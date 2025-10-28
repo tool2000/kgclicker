@@ -18,7 +18,7 @@ def main(
     graph_path: str,
     retrieval_model: str = "sentence-transformers/all-mpnet-base-v2",
     temperature: float = 1.0,
-    log_level: str = "INFO"
+    log_level: str = "INFO",
 ):
     logging.basicConfig(level=log_level)
     logger = logging.getLogger(__name__)
@@ -74,10 +74,12 @@ def main(
     llm_deduplicated_graph2.stats("LLM deduplicated deduplicated graph")
 
     logger.info("Semantic hashing time: %s seconds", semhash_time)
-    logger.info("LLM time: %s seconds, cluster time: %s seconds",
-                llm_time, cluster_time)
-    logger.info("LLM time2: %s seconds, cluster time2: %s seconds",
-                llm_time2, cluster_time2)
+    logger.info(
+        "LLM time: %s seconds, cluster time: %s seconds", llm_time, cluster_time
+    )
+    logger.info(
+        "LLM time2: %s seconds, cluster time2: %s seconds", llm_time2, cluster_time2
+    )
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ class Graph(BaseModel):
         Load the graph from a file.
         Fix graph entities and edges for missing ones defined in relations.
         """
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             graph = Graph.model_validate(data)
 
@@ -40,11 +40,13 @@ class Graph(BaseModel):
         """
         Save the graph to a file.
         """
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(self.model_dump_json(indent=2))
 
     def stats(self, name: Optional[str] = None):
         """
         Print the stats of the graph.
         """
-        print(f"{name or 'Graph'} with:\n\t{len(self.entities)} entities\n\t{len(self.edges)} edges\n\t{len(self.relations)} relations")
+        print(
+            f"{name or 'Graph'} with:\n\t{len(self.entities)} entities\n\t{len(self.edges)} edges\n\t{len(self.relations)} relations"
+        )
