@@ -1,4 +1,4 @@
-from kg_gen import KGGen
+from src.kg_gen import KGGen
 from fixtures import kg
 
 

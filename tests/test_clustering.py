@@ -1,5 +1,5 @@
-from kg_gen import KGGen
-from kg_gen.models import Graph
+from src.kg_gen import KGGen
+from src.kg_gen.models import Graph
 import os
 from fixtures import kg
 from dotenv import load_dotenv
