@@ -72,39 +72,6 @@ KGGen.visualize(graph, output_path, open_in_browser=True)
 
 ![viz-tool](images/viz-tool.png)
 
-### Uploading to Neo4j
-You can upload your generated knowledge graphs to Neo4j databases (both local and cloud instances like Neo4j AuraDB):
-
-```python
-from kg_gen.utils.neo4j_integration import upload_to_neo4j, Neo4jUploader
-
-# Simple upload to Neo4j
-success = upload_to_neo4j(
-    graph=graph_1,
-    uri="bolt://localhost:7687",  # or neo4j+s://instance.databases.neo4j.io for AuraDB
-    username="neo4j",
-    password="your-password",
-    graph_name="my_graph",
-    clear_existing=True
-)
-
-# Or use the uploader class for more control
-uploader = Neo4jUploader(uri, username, password)
-if uploader.connect():
-    uploader.upload_graph(graph_1, graph_name="family_graph")
-    
-    # Query your uploaded graph
-    stats = uploader.get_graph_stats()
-    print(f"Nodes: {stats['node_count']}, Relationships: {stats['relationship_count']}")
-    
-    uploader.close()
-```
-
-The integration automatically maps your knowledge graph to Neo4j:
-- **Entities** → Nodes with `Entity` label
-- **Relations** → Relationships with predicate as relationship type
-- **Graph Name** → Additional labels and properties for organization
-
 ### More Examples - chunking, clustering, passing in a messages array 
 
 ```python
