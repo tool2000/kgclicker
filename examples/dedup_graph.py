@@ -17,7 +17,6 @@ app = typer.Typer()
 def main(
     graph_path: str,
     retrieval_model: str = "sentence-transformers/all-mpnet-base-v2",
-    temperature: float = 1.0,
     log_level: str = "INFO",
 ):
     logging.basicConfig(level=log_level)
@@ -32,7 +31,8 @@ def main(
     lm = dspy.LM(
         model=os.environ.get("LLM_MODEL"),
         api_key=os.environ.get("LLM_API_KEY"),
-        temperature=temperature,
+        temperature=float(os.environ.get("LLM_TEMPERATURE", "1.0")),
+        max_tokens=16000,
     )
 
     transformer_model = SentenceTransformer(retrieval_model)

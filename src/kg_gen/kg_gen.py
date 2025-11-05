@@ -2,7 +2,7 @@ from typing import Union, List, Dict, Optional
 
 from kg_gen.steps._1_get_entities import get_entities
 from kg_gen.steps._2_get_relations import get_relations
-from kg_gen.steps._3_dedup_cluster_graph import dedup_cluster_graph
+from kg_gen.steps._3_deduplicate import dedup_cluster_graph
 from kg_gen.utils.chunk_text import chunk_text
 from kg_gen.utils.visualize_kg import visualize as visualize_kg
 from kg_gen.models import Graph
