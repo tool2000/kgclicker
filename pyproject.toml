@@ -36,6 +36,7 @@ dependencies = [
     "pathlib2>=2.3.7",
     "typer>=0.17.4",
     "ruff>=0.14.2",
+    "neo4j>=5.0.0",
 ]
 
 [dependency-groups]
