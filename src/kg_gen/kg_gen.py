@@ -125,8 +125,10 @@ class KGGen:
                 max_tokens=self.max_tokens,
                 api_base=self.api_base,
                 cache=not self.disable_cache,
-                model_type="responses" if self.model.startswith("gpt-5") else "chat",
-                allowed_openai_params=["reasoning_effort"],
+                model_type="responses" if self.model.startswith("openai/") else "chat",
+                allowed_openai_params=["reasoning_effort"]
+                if self.api_base is None
+                else None,
             )
         else:
             self.lm = dspy.LM(
@@ -136,8 +138,10 @@ class KGGen:
                 api_base=self.api_base,
                 reasoning_effort=self.reasoning_effort,
                 cache=not self.disable_cache,
-                model_type="responses" if self.model.startswith("gpt-5") else "chat",
-                allowed_openai_params=["reasoning_effort"],
+                model_type="responses" if self.model.startswith("openai/") else "chat",
+                allowed_openai_params=["reasoning_effort"]
+                if self.api_base is None
+                else None,
             )
 
     @staticmethod
@@ -300,15 +304,27 @@ class KGGen:
         all_entities = set()
         all_relations = set()
         all_edges = set()
+        all_entity_metadata: dict[str, set[str]] = {}
 
         # Combine all graphs
         for graph in graphs:
             all_entities.update(graph.entities)
             all_relations.update(graph.relations)
             all_edges.update(graph.edges)
+            if graph.entity_metadata:
+                for entity, metadata_set in graph.entity_metadata.items():
+                    if entity in all_entity_metadata:
+                        all_entity_metadata[entity].update(metadata_set)
+                    else:
+                        all_entity_metadata[entity] = metadata_set.copy()
 
         # Create and return aggregated graph
-        return Graph(entities=all_entities, relations=all_relations, edges=all_edges)
+        return Graph(
+            entities=all_entities,
+            relations=all_relations,
+            edges=all_edges,
+            entity_metadata=all_entity_metadata if all_entity_metadata else None,
+        )
 
     @staticmethod
     def visualize(graph: Graph, output_path: str, open_in_browser: bool = False):
@@ -425,6 +441,7 @@ class KGGen:
             "edge_clusters": {k: list(v) for k, v in graph.edge_clusters.items()}
             if graph.edge_clusters
             else None,
+            "entity_metadata": graph.entity_metadata,
         }
 
         with open(output_path, "w") as f:
