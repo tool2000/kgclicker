@@ -120,15 +120,14 @@ class KGGen:
             self.lm = dspy.LM(
                 model=self.model,
                 api_key=self.api_key,
-                reasoning_effort=self.reasoning_effort,
+                reasoning={"effort": self.reasoning_effort}
+                if self.reasoning_effort
+                else None,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 api_base=self.api_base,
                 cache=not self.disable_cache,
                 model_type="responses" if self.model.startswith("openai/") else "chat",
-                allowed_openai_params=["reasoning_effort"]
-                if self.api_base is None
-                else None,
             )
         else:
             self.lm = dspy.LM(
@@ -136,12 +135,11 @@ class KGGen:
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 api_base=self.api_base,
-                reasoning_effort=self.reasoning_effort,
+                reasoning={"effort": self.reasoning_effort}
+                if self.reasoning_effort
+                else None,
                 cache=not self.disable_cache,
                 model_type="responses" if self.model.startswith("openai/") else "chat",
-                allowed_openai_params=["reasoning_effort"]
-                if self.api_base is None
-                else None,
             )
 
     @staticmethod
