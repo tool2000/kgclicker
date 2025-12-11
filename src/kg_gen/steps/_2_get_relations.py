@@ -1,8 +1,73 @@
-from typing import List, Tuple, Optional, Literal
+from typing import List, Tuple, Optional, Literal, Type
 from pathlib import Path
+import json
 import dspy
 import litellm
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, create_model, ValidationError
+
+
+def parse_relations_response(
+    raw_json: str,
+    entities: List[str],
+    response_model: Optional[Type[BaseModel]] = None,
+) -> List[Tuple[str, str, str]]:
+    """
+    Parse a relations JSON response with graceful fallback.
+    
+    First attempts strict Pydantic validation. If that fails (e.g., due to 
+    EntityLiteral validation), falls back to raw JSON parsing and filters 
+    out items with invalid subject/object.
+    
+    Args:
+        raw_json: The raw JSON string from the LLM response
+        entities: List of valid entity strings
+        response_model: Optional Pydantic model for strict validation
+        
+    Returns:
+        List of (subject, predicate, object) tuples with valid entities
+    """
+    entities_set = set(entities)
+    
+    # Try strict Pydantic validation first if model provided
+    if response_model is not None:
+        try:
+            parsed = response_model.model_validate_json(raw_json)
+            return [(r.subject, r.predicate, r.object) for r in parsed.relations]
+        except ValidationError:
+            pass  # Fall through to JSON parsing
+    
+    # Fallback: parse as raw JSON and filter
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError:
+        return []
+    
+    # Handle both {"relations": [...]} and direct list formats
+    items = data.get("relations", data) if isinstance(data, dict) else data
+    
+    if not isinstance(items, list):
+        return []
+    
+    relations = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+            
+        subject = item.get("subject")
+        predicate = item.get("predicate")
+        obj = item.get("object")
+        
+        # Skip if missing required fields
+        if not all([subject, predicate, obj]):
+            continue
+            
+        # Skip if subject or object not in valid entities
+        if subject not in entities_set or obj not in entities_set:
+            continue
+            
+        relations.append((subject, predicate, obj))
+    
+    return relations
 
 
 def _load_relations_prompt() -> str:
@@ -92,8 +157,8 @@ Here is the source text to analyze:
         kwargs["api_base"] = api_base
 
     response = litellm.responses(**kwargs)
-    parsed = RelationsResponse.model_validate_json(response.output[-1].content[0].text)
-    return [(r.subject, r.predicate, r.object) for r in parsed.relations]
+    raw_json = response.output[-1].content[0].text
+    return parse_relations_response(raw_json, entities, RelationsResponse)
 
 
 def extraction_sig(
