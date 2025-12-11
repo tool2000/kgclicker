@@ -64,6 +64,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
 "kg_gen.utils" = ["template.html"]
+"kg_gen.prompts" = ["*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "mcp/tests"]
