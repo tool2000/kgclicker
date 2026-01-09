@@ -47,6 +47,7 @@ dev = [
     "matplotlib>=3.10.7",
     "mlflow>=3.6.0",
     "streamlit>=1.51.0",
+    "seaborn>=0.13.2",
 ]
 mcp = ["fastmcp>=2.10.6", "mcp>=1.12.1"]
 
@@ -63,6 +64,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
 "kg_gen.utils" = ["template.html"]
+"kg_gen.prompts" = ["*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "mcp/tests"]

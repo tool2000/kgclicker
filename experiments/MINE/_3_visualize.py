@@ -136,7 +136,7 @@ def visualize_kg_in_browser(graph: Graph, model_name: str, essay_idx: int):
     if graph is None or not graph.entities:
         st.warning(f"No knowledge graph available for {model_name}")
         return
-    
+
     # Generate HTML visualization with a descriptive filename
     output_dir = RESULTS_DIR / model_name
     output_path = output_dir / f"kg_{essay_idx}_visualization.html"

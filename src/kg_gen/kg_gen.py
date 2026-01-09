@@ -120,15 +120,14 @@ class KGGen:
             self.lm = dspy.LM(
                 model=self.model,
                 api_key=self.api_key,
-                reasoning_effort=self.reasoning_effort,
+                reasoning={"effort": self.reasoning_effort}
+                if self.reasoning_effort
+                else None,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 api_base=self.api_base,
                 cache=not self.disable_cache,
                 model_type="responses" if self.model.startswith("openai/") else "chat",
-                allowed_openai_params=["reasoning_effort"]
-                if self.api_base is None
-                else None,
             )
         else:
             self.lm = dspy.LM(
@@ -136,12 +135,11 @@ class KGGen:
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 api_base=self.api_base,
-                reasoning_effort=self.reasoning_effort,
+                reasoning={"effort": self.reasoning_effort}
+                if self.reasoning_effort
+                else None,
                 cache=not self.disable_cache,
                 model_type="responses" if self.model.startswith("openai/") else "chat",
-                allowed_openai_params=["reasoning_effort"]
-                if self.api_base is None
-                else None,
             )
 
     @staticmethod
@@ -166,6 +164,7 @@ class KGGen:
         deduplication_method: DeduplicateMethod | None = DeduplicateMethod.SEMHASH,
         temperature: float = None,
         output_folder: Optional[str] = None,
+        no_dspy: bool = False,
     ) -> Graph:
         """Generate a knowledge graph from input text or messages.
 
@@ -215,9 +214,28 @@ class KGGen:
 
         def _process(content, lm):
             with dspy.context(lm=lm):
-                entities = get_entities(content, is_conversation)
+                entities = get_entities(
+                    content,
+                    is_conversation,
+                    use_litellm_prompt=no_dspy,
+                    model=self.model,
+                    api_key=self.api_key,
+                    api_base=self.api_base,
+                    temperature=temperature
+                    if temperature is not None
+                    else self.temperature,
+                )
                 relations = get_relations(
-                    content, entities, is_conversation=is_conversation
+                    content,
+                    entities,
+                    is_conversation=is_conversation,
+                    use_litellm_prompt=no_dspy,
+                    model=self.model,
+                    api_key=self.api_key,
+                    api_base=self.api_base,
+                    temperature=temperature
+                    if temperature is not None
+                    else self.temperature,
                 )
                 return entities, relations
 
