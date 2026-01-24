@@ -70,7 +70,6 @@
                 </header>
                 
                 <div class="action-buttons-container">
-                    <!-- Open Graph Button -->
                     <button class="action-btn primary-action" onclick="openGraphViewer()">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
                             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 9l5-5l5 5m-5-5v12"/>
@@ -78,7 +77,6 @@
                         <span class="action-title">Open Existing Graph</span>
                     </button>
                     
-                    <!-- Generate from Text Button -->
                     <button class="action-btn secondary-action" onclick="generateFromText()">
                         <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -87,7 +85,28 @@
                             <line x1="16" y1="17" x2="8" y2="17"/>
                             <polyline points="10,9 9,9 8,9"/>
                         </svg>
-                        <span class="action-title">Generate from Text</span>
+                        <span class="action-title">Generate from Documents</span>
+                    </button>
+
+                    <button class="action-btn tertiary-action" onclick="openGraphManager()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+                        </svg>
+                        <span class="action-title">Saved Graphs</span>
+                    </button>
+
+                    <button class="action-btn tertiary-action" onclick="openAnalysisModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                        </svg>
+                        <span class="action-title">Advanced Analysis</span>
+                    </button>
+
+                    <button class="action-btn tertiary-action" onclick="openRagModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M7 3h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4V5a2 2 0 0 1 2-2Zm2 5h6v2H9V8Zm0 4h4v2H9v-2Z"/>
+                        </svg>
+                        <span class="action-title">RAG Q&A</span>
                     </button>
                 </div>
 
@@ -187,6 +206,11 @@
                             <path fill="currentColor" d="M19.31 12.051c.381 0 .69.314.69.7v4.918c-.006.67-.127 1.2-.399 1.594c-.328.476-.908.692-1.747.737l-15.903-.002c-.646-.046-1.168-.302-1.507-.777c-.302-.423-.446-.95-.444-1.558V12.75c0-.386.309-.7.69-.7c.38 0 .688.314.688.7v4.913c0 .333.065.572.182.736c.081.114.224.184.44.201l15.817.001c.42-.023.627-.1.655-.14c.084-.123.146-.393.15-.8V12.75c0-.386.308-.7.689-.7ZM9.99 0c.38 0 .69.313.69.7l-.001 10.869l3.062-3.079a.682.682 0 0 1 .975.004a.707.707 0 0 1-.004.99l-4.356 4.38a.682.682 0 0 1-.973-.003l-4.296-4.38a.707.707 0 0 1 .002-.99a.682.682 0 0 1 .975.002L9.3 11.794V.699C9.3.313 9.61 0 9.99 0Z"/>
                         </svg>
                         Download graph.json</button>
+                    <button class="secondary" id="saveGraph" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M5 3h11l5 5v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm2 2v6h10V5H7Zm0 8v6h10v-6H7Z"/>
+                        </svg>
+                        Save to server</button>
                     <button class="secondary" id="refreshView" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20">
                             <path fill="currentColor" d="M19.295 12a.704.704 0 0 1 .705.709v3.204a.704.704 0 0 1-.7.709a.704.704 0 0 1-.7-.709v-1.125C16.779 17.844 13.399 20 9.757 20c-4.41 0-8.106-2.721-9.709-6.915a.712.712 0 0 1 .4-.917c.36-.141.766.04.906.405c1.4 3.662 4.588 6.01 8.403 6.01c3.371 0 6.52-2.182 7.987-5.154l-1.471.01a.704.704 0 0 1-.705-.704a.705.705 0 0 1 .695-.714L19.295 12Zm-9.05-12c4.408 0 8.105 2.721 9.708 6.915a.712.712 0 0 1-.4.917a.697.697 0 0 1-.906-.405c-1.4-3.662-4.588-6.01-8.403-6.01c-3.371 0-6.52 2.182-7.987 5.154l1.471-.01a.704.704 0 0 1 .705.704a.705.705 0 0 1-.695.714L.705 8A.704.704 0 0 1 0 7.291V4.087c0-.392.313-.709.7-.709c.386 0 .7.317.7.709v1.125C3.221 2.156 6.601 0 10.243 0Z"/>
@@ -226,18 +250,19 @@
             </section>
         </template>
 
-        <template id="textGeneratorModalTemplate" data-title="Text Generator" data-width="600px">
+        <template id="textGeneratorModalTemplate" data-title="Generate Knowledge Graph" data-width="650px">
             <!-- Generate from text Mode Content -->
             <div id="generateModeContent">
                 <section class="card" id="generateCard">
-                    <p>Provide your OpenAI API key and either paste text or upload a <code>.txt</code> document. The request
-                        runs through <code>KGGen</code> on this server and never leave your environment.</p>
+                    <p>Upload documents (PDF, DOCX, PPTX, TXT) or paste text to generate a knowledge graph. 
+                        <span id="azureConfigStatus" class="config-status"></span>
+                    </p>
 
                     <div class="field-group">
-                        <div>
-                            <label for="apiKey">OpenAI API key</label>
+                        <div id="apiKeySection">
+                            <label for="apiKey">OpenAI API key <span class="optional-label">(optional if Azure configured)</span></label>
                             <div class="password-input-container">
-                                <input type="password" id="apiKey" autocomplete="new-password" placeholder="sk-..." />
+                                <input type="password" id="apiKey" autocomplete="new-password" placeholder="sk-... or leave empty for Azure" />
                                 <button type="button" class="password-toggle" id="passwordToggle" aria-label="Toggle password visibility">
                                     <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20">
                                         <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>
@@ -245,41 +270,52 @@
                                 </button>
                             </div>
                         </div>
-                        <div>
-                            <div>
+                        <div class="field-row">
+                            <div class="field">
                                 <label for="model">Model</label>
                                 <select id="model">
+                                    <option value="azure/gpt-4.1">Azure GPT-4.1 (configured)</option>
                                     <option value="openai/gpt-4o">openai/gpt-4o</option>
                                     <option value="openai/gpt-5-nano">openai/gpt-5-nano</option>
                                     <option value="openai/gpt-5">openai/gpt-5</option>
                                 </select>
                             </div>
+                            <div class="field">
+                                <label for="graphIdInput">Save as (optional)</label>
+                                <input type="text" id="graphIdInput" placeholder="my-knowledge-graph" />
+                            </div>
                         </div>
                         <div class="field-row">
                             <div class="field">
                                 <label for="chunkSize">Chunk size (chars)</label>
-                                <input type="number" id="chunkSize" min="0" placeholder="e.g. 1500" />
+                                <input type="number" id="chunkSize" min="0" placeholder="e.g. 5000" />
                             </div>
                             <div class="field">
                                 <label for="temperature">Temperature</label>
                                 <input type="number" id="temperature" step="0.1" min="0" max="2" placeholder="Default" />
                             </div>
                         </div>
-                        <div>
-                            <label class="checkbox">
-                                <input type="checkbox" id="clusterToggle" />
-                                <span>Enable clustering</span>
-                            </label>
-                        </div>
-                        <div>
-                            <div>
-                                <label for="retrievalModel">Retrieval Model</label>
-                                <select id="retrievalModel">
-                                    <option value="sentence-transformers/all-mpnet-base-v2">sentence-transformers/all-mpnet-base-v2</option>
-                                    <option value="sentence-transformers/all-MiniLM-L12-v2">sentence-transformers/all-MiniLM-L12-v2</option>
-                                    <option value="sentence-transformers/all-MiniLM-L6-v2">sentence-transformers/all-MiniLM-L6-v2</option>
+                        <div class="field-row">
+                            <div class="field">
+                                <label class="checkbox">
+                                    <input type="checkbox" id="clusterToggle" />
+                                    <span>Enable clustering</span>
+                                </label>
+                            </div>
+                            <div class="field">
+                                <label for="mergeWithGraph">Merge with existing graph</label>
+                                <select id="mergeWithGraph">
+                                    <option value="">Create new graph</option>
                                 </select>
                             </div>
+                        </div>
+                        <div>
+                            <label for="retrievalModel">Retrieval Model</label>
+                            <select id="retrievalModel">
+                                <option value="sentence-transformers/all-mpnet-base-v2">sentence-transformers/all-mpnet-base-v2</option>
+                                <option value="sentence-transformers/all-MiniLM-L12-v2">sentence-transformers/all-MiniLM-L12-v2</option>
+                                <option value="sentence-transformers/all-MiniLM-L6-v2">sentence-transformers/all-MiniLM-L6-v2</option>
+                            </select>
                         </div>
                         <div>
                             <label for="context">Context (optional)</label>
@@ -302,23 +338,23 @@
                         </div>
                         
                         <div>
-                        <div class="drop-zone" id="graphDropZoneText" role="button" tabindex="0" aria-controls="textFile"
-                        aria-label="Upload text file" >
-                        <strong id="dropZoneText">Drop file here or click to choose</strong>
-                        <span class="hint" id="dropZoneHint">Accepts <code>.txt</code> files</span>
-                        <div class="input-hint" id="dropZoneDisabledMessage" style="display: none; margin-top: 8px; color: #9ca3af; font-size: 0.8rem;">
-                            File upload disabled while text is entered above
-                        </div>
-                        <button title="Remove selected file" type="button" class="file-remove-btn" id="fileRemoveBtn" style="display: none;" aria-label="Remove selected file">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 16 16">
-                                <g fill="currentColor">
-                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
-                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
-                                </g>
-                            </svg>
-                        </button>
-                        </div>
-                        <input type="file" id="textFile" accept="text/plain" hidden />
+                            <div class="drop-zone" id="graphDropZoneText" role="button" tabindex="0" aria-controls="textFile"
+                                aria-label="Upload document file">
+                                <strong id="dropZoneText">Drop files here or click to choose</strong>
+                                <span class="hint" id="dropZoneHint">Accepts <code>.pdf</code>, <code>.docx</code>, <code>.pptx</code>, <code>.txt</code></span>
+                                <div class="input-hint" id="dropZoneDisabledMessage" style="display: none; margin-top: 8px; color: #9ca3af; font-size: 0.8rem;">
+                                    File upload disabled while text is entered above
+                                </div>
+                                <button title="Remove selected file" type="button" class="file-remove-btn" id="fileRemoveBtn" style="display: none;" aria-label="Remove selected file">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 16 16">
+                                        <g fill="currentColor">
+                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                            <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                                        </g>
+                                    </svg>
+                                </button>
+                            </div>
+                            <input type="file" id="textFile" accept=".pdf,.docx,.doc,.pptx,.ppt,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain" hidden />
                             <div class="input-hint" id="textFileHint">To upload a file, clear the text input first</div>
                         </div>
                     </div>
@@ -341,6 +377,161 @@
                     <div class="button-row">
                         <button class="primary" id="generateButton">Generate graph</button>
                         <button class="secondary" id="clearTextButton" type="button">Clear inputs</button>
+                    </div>
+                </section>
+            </div>
+        </template>
+
+        <!-- Graph Manager Modal Template -->
+        <template id="graphManagerModalTemplate" data-title="Saved Graphs" data-width="700px">
+            <div id="graphManagerContent">
+                <section class="card">
+                    <div class="graph-manager-header">
+                        <p>Manage your saved knowledge graphs. Load, merge, or delete graphs.</p>
+                        <button class="secondary refresh-btn" id="refreshGraphListBtn" type="button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                                <path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                            </svg>
+                            Refresh
+                        </button>
+                    </div>
+                    
+                    <div id="savedGraphsList" class="saved-graphs-list">
+                        <div class="loading-placeholder">Loading saved graphs...</div>
+                    </div>
+                    
+                    <div id="noGraphsMessage" class="no-graphs-message" style="display: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                        </svg>
+                        <p>No saved graphs yet</p>
+                        <span>Generate a knowledge graph and save it to see it here.</span>
+                    </div>
+                </section>
+            </div>
+        </template>
+
+        <!-- Analysis Modal Template -->
+        <template id="analysisModalTemplate" data-title="Graph Analysis" data-width="800px">
+            <div id="analysisModalContent">
+                <section class="card">
+                    <div class="analysis-tabs">
+                        <button class="analysis-tab active" data-tab="centrality">Centrality</button>
+                        <button class="analysis-tab" data-tab="communities">Communities</button>
+                        <button class="analysis-tab" data-tab="paths">Path Finder</button>
+                    </div>
+                    
+                    <!-- Centrality Tab -->
+                    <div id="centralityTab" class="analysis-tab-content active">
+                        <p class="analysis-description">Centrality metrics identify the most important or influential entities in the graph.</p>
+                        <div id="centralityResults" class="analysis-results">
+                            <div class="analysis-placeholder">Load a graph to see centrality analysis.</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Communities Tab -->
+                    <div id="communitiesTab" class="analysis-tab-content" style="display: none;">
+                        <p class="analysis-description">Community detection finds groups of closely connected entities.</p>
+                        <div class="community-controls">
+                            <label for="communityMethod">Detection Method:</label>
+                            <select id="communityMethod">
+                                <option value="louvain">Louvain (recommended)</option>
+                                <option value="label_propagation">Label Propagation</option>
+                                <option value="greedy_modularity">Greedy Modularity</option>
+                            </select>
+                            <button class="secondary" id="detectCommunitiesBtn">Detect Communities</button>
+                        </div>
+                        <div id="communityResults" class="analysis-results">
+                            <div class="analysis-placeholder">Click "Detect Communities" to analyze.</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Path Finder Tab -->
+                    <div id="pathsTab" class="analysis-tab-content" style="display: none;">
+                        <p class="analysis-description">Find paths between two entities in the knowledge graph.</p>
+                        <div class="path-finder-controls">
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="pathSource">Source Entity</label>
+                                    <input type="text" id="pathSource" placeholder="Start entity" list="entitySuggestions" />
+                                </div>
+                                <div class="field">
+                                    <label for="pathTarget">Target Entity</label>
+                                    <input type="text" id="pathTarget" placeholder="End entity" list="entitySuggestions" />
+                                </div>
+                            </div>
+                            <datalist id="entitySuggestions"></datalist>
+                            <div class="path-options">
+                                <label class="checkbox">
+                                    <input type="checkbox" id="findAllPaths" />
+                                    <span>Find all paths (up to 10)</span>
+                                </label>
+                                <button class="primary" id="findPathBtn">Find Path</button>
+                            </div>
+                        </div>
+                        <div id="pathResults" class="analysis-results">
+                            <div class="analysis-placeholder">Enter source and target entities to find paths.</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </template>
+
+        <template id="ragModalTemplate" data-title="RAG Q&A" data-width="820px">
+            <div id="ragModalContent">
+                <section class="card">
+                    <p class="analysis-description">Ask questions using the knowledge graph and vector index together.</p>
+                    <div class="field-group">
+                        <div class="field-row">
+                            <div class="field">
+                                <label for="ragGraphSelect">Saved Graph</label>
+                                <select id="ragGraphSelect"></select>
+                            </div>
+                            <div class="field">
+                                <label for="ragRetrievalModel">Embedding Model</label>
+                                <select id="ragRetrievalModel">
+                                    <option value="sentence-transformers/all-mpnet-base-v2">sentence-transformers/all-mpnet-base-v2</option>
+                                    <option value="sentence-transformers/all-MiniLM-L12-v2">sentence-transformers/all-MiniLM-L12-v2</option>
+                                    <option value="sentence-transformers/all-MiniLM-L6-v2">sentence-transformers/all-MiniLM-L6-v2</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field">
+                                <label for="ragTopNodes">Top KG nodes</label>
+                                <input type="number" id="ragTopNodes" min="1" value="8" />
+                            </div>
+                            <div class="field">
+                                <label for="ragTopChunks">Top text chunks</label>
+                                <input type="number" id="ragTopChunks" min="1" value="6" />
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="ragQuestion">Question</label>
+                            <textarea id="ragQuestion" placeholder="Ask a question about your documents..."></textarea>
+                        </div>
+                        <div class="button-row">
+                            <button class="primary" id="ragAskBtn">Run RAG</button>
+                            <button class="secondary" id="ragClearBtn" type="button">Clear</button>
+                        </div>
+                    </div>
+
+                    <div id="ragIndexInfo" class="rag-index-info">
+                        <div class="rag-index-status">
+                            <span id="ragIndexStatusIcon" class="status-icon"></span>
+                            <span id="ragIndexStatusText">Select a graph to check index status</span>
+                        </div>
+                    </div>
+
+                    <div id="ragError" class="error-message" style="display: none;">
+                        <div class="error-message__content">
+                            <div class="error-message__title">RAG Failed</div>
+                            <div class="error-message__description" id="ragErrorText"></div>
+                        </div>
+                    </div>
+
+                    <div id="ragResults" class="rag-results">
+                        <div class="analysis-placeholder">Submit a question to see results.</div>
                     </div>
                 </section>
             </div>

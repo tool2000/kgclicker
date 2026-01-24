@@ -676,6 +676,7 @@
     const viewerWrapper = document.querySelector('.viewer-wrapper');
     const floatingActions = document.getElementById('floatingActions');
     const downloadButton = document.getElementById('downloadGraph');
+    const saveButton = document.getElementById('saveGraph');
     const refreshButton = document.getElementById('refreshView');
 
     let graphFileInput = document.getElementById('graphFile');
@@ -694,6 +695,8 @@
     let contextInput = document.getElementById('context');
     let sourceText = document.getElementById('sourceText');
     let textFileInput = document.getElementById('textFile');
+    let graphIdInput = document.getElementById('graphIdInput');
+    let mergeWithGraphInput = document.getElementById('mergeWithGraph');
 
     let generateButton = document.getElementById('generateButton');
     let clearTextButton = document.getElementById('clearTextButton');
@@ -929,6 +932,7 @@
     let lastViewModel = null;
     let isGenerating = false;
     let hasLoadedGraph = false;
+    let currentGraphId = null;
 
     function resetViewer() {
         if (activeUrl) {
@@ -940,6 +944,7 @@
         floatingActions.setAttribute('hidden', 'hidden');
         refreshCallbacks.length = 0;
         hasLoadedGraph = false;
+        currentGraphId = null;
         if (viewerWrapper) {
             viewerWrapper.classList.remove('graph-loaded');
         }
@@ -1394,6 +1399,7 @@
             console.info('[kg-gen] Detected precomputed view model');
             setStatus('Rendering supplied visualization...');
             await renderView(rawJson, rawJson);
+            currentGraphId = null;
             return;
         }
 
@@ -1436,6 +1442,7 @@
 
             console.info('[kg-gen] Graph preparation succeeded');
             await renderView(payload.view, payload.graph);
+            currentGraphId = null;
             return;
         } catch (error) {
             remoteError = error;
@@ -1452,6 +1459,7 @@
             console.info('[kg-gen] Graph rendered locally');
             await renderView(viewModel, rawJson);
             setStatus(`${extractSummary(viewModel)} (rendered locally)`, 'success');
+            currentGraphId = null;
         } catch (fallbackError) {
             console.error('[kg-gen] Local conversion failed', fallbackError);
             const combinedMessage = fallbackError?.message || remoteError?.message || 'Unknown error';
@@ -1527,6 +1535,11 @@
         const textFile = textFileInput.files?.[0];
         const chunkSizeValue = chunkSizeInput.value.trim();
         const temperatureValue = temperatureInput.value.trim();
+        const mergeWithValue = mergeWithGraphInput?.value || '';
+        let graphIdValue = graphIdInput?.value.trim() || '';
+        if (!graphIdValue && mergeWithValue) {
+            graphIdValue = mergeWithValue;
+        }
 
         if (!apiKey) {
             const errorMessage = 'Enter your OpenAI API key to generate a graph.';      
@@ -1572,6 +1585,12 @@
         }
         if (temperatureValue) {
             formData.append('temperature', temperatureValue);
+        }
+        if (graphIdValue) {
+            formData.append('graph_id', graphIdValue);
+        }
+        if (mergeWithValue) {
+            formData.append('merge_with', mergeWithValue);
         }
 
         setStatus('Generating graph with KGGen...');
@@ -1620,6 +1639,7 @@
             console.info('[kg-gen] Generation succeeded');
             hideGenerateError();
             await renderView(payload.view, payload.graph);
+            currentGraphId = graphIdValue ? sanitizeGraphId(graphIdValue) : null;
         } catch (error) {
             console.error(error);
             const errorMessage = 'Generation failed: ' + (error.message || 'Unknown error');
@@ -1783,6 +1803,52 @@
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     });
+
+    if (saveButton) {
+        saveButton.addEventListener('click', async () => {
+            const graphData = window.lastLoadedGraph || lastGraphPayload;
+            if (!graphData) {
+                alert('Please load or generate a graph before saving.');
+                return;
+            }
+
+            let graphId = currentGraphId;
+            if (!graphId) {
+                graphId = prompt('Enter a graph ID to save', 'my-graph');
+            }
+            if (!graphId) {
+                return;
+            }
+
+            const sanitizedId = sanitizeGraphId(graphId);
+            if (!sanitizedId) {
+                alert('Invalid graph ID.');
+                return;
+            }
+
+            showGlobalLoading('Saving Graph', 'Saving graph to server...');
+            try {
+                const response = await fetch(`/api/graphs/${sanitizedId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(graphData)
+                });
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => null);
+                    const message = payload?.detail || payload?.error || 'Save failed';
+                    throw new Error(message);
+                }
+                currentGraphId = sanitizedId;
+                await loadSavedGraphsList();
+                setStatus(`Graph saved as ${sanitizedId}.`);
+            } catch (error) {
+                console.error('[kg-gen] Save failed', error);
+                alert(`Save failed: ${error.message}`);
+            } finally {
+                hideGlobalLoading();
+            }
+        });
+    }
 
     refreshButton.addEventListener('click', () => {
         if (!refreshCallbacks.length) {
@@ -2271,5 +2337,682 @@
     window.updateDropZoneText = updateDropZoneText;
     window.toggleDropZoneState = toggleDropZoneState;
     window.toggleTextareaState = toggleTextareaState;
-})();
 
+    // Store last loaded graph for analysis
+    window.lastLoadedGraph = null;
+
+    // Graph Manager Modal
+    window.openGraphManager = async function() {
+        const modal = new Modal('graphManagerModal', 'Saved Graphs', null, {
+            selector: '#graphManagerModalTemplate',
+            width: '700px',
+            closable: true,
+            backdrop: true
+        });
+
+        await loadSavedGraphsList();
+
+        const refreshBtn = document.getElementById('refreshGraphListBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', loadSavedGraphsList);
+        }
+    };
+
+    async function loadSavedGraphsList() {
+        const listContainer = document.getElementById('savedGraphsList');
+        const noGraphsMessage = document.getElementById('noGraphsMessage');
+        
+        if (!listContainer) return;
+
+        listContainer.innerHTML = '<div class="loading-placeholder">Loading saved graphs...</div>';
+        
+        try {
+            const response = await fetch('/api/graphs');
+            const data = await response.json();
+            
+            if (!data.graphs || data.graphs.length === 0) {
+                listContainer.innerHTML = '';
+                if (noGraphsMessage) noGraphsMessage.style.display = 'flex';
+                return;
+            }
+
+            if (noGraphsMessage) noGraphsMessage.style.display = 'none';
+
+            listContainer.innerHTML = data.graphs.map(graph => `
+                <div class="saved-graph-item" data-graph-id="${graph.id}">
+                    <div class="graph-item-info">
+                        <h4 class="graph-item-name">${graph.name || graph.id}</h4>
+                        <div class="graph-item-meta">
+                            <span>${graph.stats?.entities || 0} entities</span>
+                            <span>${graph.stats?.relations || 0} relations</span>
+                            <span>Updated: ${formatDate(graph.updated_at)}</span>
+                        </div>
+                        ${graph.description ? `<p class="graph-item-desc">${graph.description}</p>` : ''}
+                        ${graph.source_documents?.length ? `<div class="graph-item-sources">Sources: ${graph.source_documents.slice(0, 3).join(', ')}${graph.source_documents.length > 3 ? '...' : ''}</div>` : ''}
+                        ${graph.vector_index?.chunk_count ? `<div class="graph-item-sources">Vector index: ${graph.vector_index.chunk_count} chunks</div>` : ''}
+                    </div>
+                    <div class="graph-item-actions">
+                        <button class="primary small" onclick="loadSavedGraph('${graph.id}')">Load</button>
+                        <button class="secondary small" onclick="deleteSavedGraph('${graph.id}', '${graph.name || graph.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('[kg-gen] Failed to load saved graphs:', error);
+            listContainer.innerHTML = '<div class="error-placeholder">Failed to load saved graphs.</div>';
+        }
+    }
+
+    window.loadSavedGraph = async function(graphId) {
+        showLoadingInViewer('Loading Graph', 'Loading saved graph...');
+        Modal.closeAll();
+
+        try {
+            const response = await fetch(`/api/graphs/${graphId}`);
+            if (!response.ok) {
+                throw new Error('Graph not found');
+            }
+            const data = await response.json();
+            
+            window.lastLoadedGraph = data.graph;
+            await renderView(data.view, data.graph);
+            currentGraphId = graphId;
+        } catch (error) {
+            console.error('[kg-gen] Failed to load graph:', error);
+            hideLoadingInViewer();
+            setStatus(`Failed to load graph: ${error.message}`, 'error');
+        }
+    };
+
+    window.deleteSavedGraph = async function(graphId, graphName) {
+        if (!confirm(`Are you sure you want to delete "${graphName}"?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/graphs/${graphId}?delete_history=true`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to delete');
+            }
+            
+            await loadSavedGraphsList();
+        } catch (error) {
+            console.error('[kg-gen] Failed to delete graph:', error);
+            alert(`Failed to delete graph: ${error.message}`);
+        }
+    };
+
+    // Analysis Modal
+    window.openAnalysisModal = function() {
+        if (!window.lastLoadedGraph && !lastGraphPayload) {
+            alert('Please load a graph first before running analysis.');
+            return;
+        }
+
+        const modal = new Modal('analysisModal', 'Graph Analysis', null, {
+            selector: '#analysisModalTemplate',
+            width: '800px',
+            closable: true,
+            backdrop: true
+        });
+
+        setupAnalysisTabs();
+        loadCentralityAnalysis();
+        populateEntitySuggestions();
+    };
+
+    function setupAnalysisTabs() {
+        const tabs = document.querySelectorAll('.analysis-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                document.querySelectorAll('.analysis-tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+                
+                const targetContent = document.getElementById(`${targetTab}Tab`);
+                if (targetContent) {
+                    targetContent.style.display = 'block';
+                }
+
+                if (targetTab === 'centrality') {
+                    loadCentralityAnalysis();
+                }
+            });
+        });
+
+        const detectBtn = document.getElementById('detectCommunitiesBtn');
+        if (detectBtn) {
+            detectBtn.addEventListener('click', detectCommunities);
+        }
+
+        const findPathBtn = document.getElementById('findPathBtn');
+        if (findPathBtn) {
+            findPathBtn.addEventListener('click', findPath);
+        }
+    }
+
+    window.openRagModal = function() {
+        const modal = new Modal('ragModal', 'RAG Q&A', null, {
+            selector: '#ragModalTemplate',
+            width: '820px',
+            closable: true,
+            backdrop: true
+        });
+
+        setupRagModal();
+        loadRagGraphOptions();
+    };
+
+    function setupRagModal() {
+        const askBtn = document.getElementById('ragAskBtn');
+        const clearBtn = document.getElementById('ragClearBtn');
+
+        if (askBtn) {
+            askBtn.addEventListener('click', event => {
+                event.preventDefault();
+                runRagQuery();
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', event => {
+                event.preventDefault();
+                const questionInput = document.getElementById('ragQuestion');
+                const results = document.getElementById('ragResults');
+                if (questionInput) questionInput.value = '';
+                if (results) {
+                    results.innerHTML = '<div class="analysis-placeholder">Submit a question to see results.</div>';
+                }
+                hideRagError();
+            });
+        }
+    }
+
+    async function loadRagGraphOptions() {
+        const select = document.getElementById('ragGraphSelect');
+        if (!select) return;
+        select.innerHTML = '<option value="">Loading graphs...</option>';
+        
+        let graphsData = [];
+        try {
+            const response = await fetch('/api/graphs');
+            const data = await response.json();
+            graphsData = data.graphs || [];
+            select.innerHTML = graphsData.length
+                ? '<option value="">Select a graph...</option>'
+                : '<option value="">No saved graphs</option>';
+            graphsData.forEach(graph => {
+                const option = document.createElement('option');
+                option.value = graph.id;
+                option.textContent = graph.name || graph.id;
+                select.appendChild(option);
+            });
+            if (currentGraphId) {
+                select.value = currentGraphId;
+                updateRagIndexStatus(currentGraphId, graphsData);
+            }
+        } catch (error) {
+            console.warn('[kg-gen] Failed to load rag graphs:', error);
+            select.innerHTML = '<option value="">Failed to load graphs</option>';
+        }
+
+        select.addEventListener('change', () => {
+            const selectedId = select.value;
+            updateRagIndexStatus(selectedId, graphsData);
+        });
+    }
+
+    function updateRagIndexStatus(graphId, graphsData) {
+        const statusIcon = document.getElementById('ragIndexStatusIcon');
+        const statusText = document.getElementById('ragIndexStatusText');
+        if (!statusIcon || !statusText) return;
+
+        if (!graphId) {
+            statusIcon.className = 'status-icon';
+            statusText.textContent = 'Select a graph to check index status';
+            return;
+        }
+
+        const graph = graphsData.find(g => g.id === graphId);
+        if (!graph) {
+            statusIcon.className = 'status-icon missing';
+            statusText.textContent = 'Graph not found';
+            return;
+        }
+
+        const hasVectorIndex = graph.vector_index && graph.vector_index.chunk_count > 0;
+        if (hasVectorIndex) {
+            statusIcon.className = 'status-icon ready';
+            statusText.textContent = `Vector index ready (${graph.vector_index.chunk_count} chunks)`;
+        } else {
+            statusIcon.className = 'status-icon missing';
+            statusText.textContent = 'No vector index - RAG will use KG only';
+        }
+    }
+
+    function showRagError(message) {
+        const errorBox = document.getElementById('ragError');
+        const errorText = document.getElementById('ragErrorText');
+        if (errorBox) {
+            errorBox.style.display = 'flex';
+        }
+        if (errorText) {
+            errorText.textContent = message;
+        }
+    }
+
+    function hideRagError() {
+        const errorBox = document.getElementById('ragError');
+        if (errorBox) {
+            errorBox.style.display = 'none';
+        }
+    }
+
+    function renderRagResults(payload) {
+        const results = document.getElementById('ragResults');
+        if (!results) return;
+
+        const answer = payload.answer || 'No answer provided.';
+        const sources = payload.sources_used || {};
+        const usedKg = sources.knowledge_graph;
+        const usedVector = sources.vector_index;
+
+        let sourceBadges = '';
+        if (usedKg) sourceBadges += '<span class="badge">KG</span> ';
+        if (usedVector) sourceBadges += '<span class="badge">Vector</span>';
+        if (!usedKg && !usedVector) sourceBadges = '<span class="badge">No sources</span>';
+
+        const nodeList = (payload.kg_top_nodes || []).map((item, index) => {
+            const score = typeof item.score === 'number' ? item.score.toFixed(4) : item.score;
+            return `<div class="centrality-item"><span class="rank">${index + 1}</span><span class="entity">${item.node}</span><span class="score">${score}</span></div>`;
+        }).join('');
+
+        const chunkList = (payload.vector_chunks || []).map((chunk, index) => {
+            const score = typeof chunk.score === 'number' ? chunk.score.toFixed(4) : chunk.score;
+            return `
+                <div class="rag-evidence-item">
+                    <div><strong>Chunk ${index + 1}</strong></div>
+                    <div>${chunk.text || ''}</div>
+                    <div class="rag-meta">Score: ${score}</div>
+                </div>
+            `;
+        }).join('');
+
+        let kgSection = '';
+        if (usedKg && nodeList) {
+            kgSection = `
+                <div class="rag-answer">
+                    <h4>Top KG Nodes</h4>
+                    <div class="centrality-list">${nodeList}</div>
+                </div>
+            `;
+        }
+
+        let vectorSection = '';
+        if (usedVector && chunkList) {
+            vectorSection = `
+                <div>
+                    <h4>Vector Evidence</h4>
+                    <div class="rag-evidence">${chunkList}</div>
+                </div>
+            `;
+        }
+
+        results.innerHTML = `
+            <div class="rag-answer">
+                <h4>Answer <span class="rag-meta">${sourceBadges}</span></h4>
+                <div>${answer}</div>
+            </div>
+            ${kgSection}
+            ${vectorSection}
+        `;
+    }
+
+    async function runRagQuery() {
+        const graphSelect = document.getElementById('ragGraphSelect');
+        const questionInput = document.getElementById('ragQuestion');
+        const topNodesInput = document.getElementById('ragTopNodes');
+        const topChunksInput = document.getElementById('ragTopChunks');
+        const retrievalModelSelect = document.getElementById('ragRetrievalModel');
+        if (!graphSelect || !questionInput || !retrievalModelSelect) {
+            return;
+        }
+
+        const graphId = graphSelect.value;
+        const question = questionInput.value.trim();
+        if (!graphId) {
+            showRagError('Select a saved graph first.');
+            return;
+        }
+        if (!question) {
+            showRagError('Please enter a question.');
+            return;
+        }
+
+        hideRagError();
+        showGlobalLoading('Running RAG', 'Searching knowledge graph and vector index...');
+
+        try {
+            const response = await fetch('/api/rag/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    graph_id: graphId,
+                    question,
+                    top_k_nodes: Number(topNodesInput?.value) || 8,
+                    top_k_chunks: Number(topChunksInput?.value) || 6,
+                    retrieval_model: retrievalModelSelect.value
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                const message = data?.detail || data?.error || 'RAG failed';
+                throw new Error(message);
+            }
+            renderRagResults(data);
+        } catch (error) {
+            console.error('[kg-gen] RAG failed', error);
+            showRagError(error.message || 'RAG failed');
+        } finally {
+            hideGlobalLoading();
+        }
+    }
+
+    async function loadCentralityAnalysis() {
+        const resultsContainer = document.getElementById('centralityResults');
+        if (!resultsContainer) return;
+
+        const graphData = window.lastLoadedGraph || lastGraphPayload;
+        if (!graphData) {
+            resultsContainer.innerHTML = '<div class="analysis-placeholder">No graph loaded.</div>';
+            return;
+        }
+
+        resultsContainer.innerHTML = '<div class="loading-placeholder">Computing centrality metrics...</div>';
+
+        try {
+            const response = await fetch('/api/analysis/centrality?top_k=15', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(graphData)
+            });
+            
+            const data = await response.json();
+            
+            resultsContainer.innerHTML = `
+                <div class="centrality-section">
+                    <h4>PageRank (Overall Importance)</h4>
+                    <div class="centrality-list">
+                        ${data.pagerank?.map((item, i) => `
+                            <div class="centrality-item">
+                                <span class="rank">${i + 1}</span>
+                                <span class="entity">${item.entity}</span>
+                                <span class="score">${item.score.toFixed(4)}</span>
+                            </div>
+                        `).join('') || '<div class="meta">No data</div>'}
+                    </div>
+                </div>
+                <div class="centrality-section">
+                    <h4>Betweenness (Bridge Nodes)</h4>
+                    <div class="centrality-list">
+                        ${data.betweenness_centrality?.map((item, i) => `
+                            <div class="centrality-item">
+                                <span class="rank">${i + 1}</span>
+                                <span class="entity">${item.entity}</span>
+                                <span class="score">${item.score.toFixed(4)}</span>
+                            </div>
+                        `).join('') || '<div class="meta">No data</div>'}
+                    </div>
+                </div>
+                <div class="centrality-section">
+                    <h4>In-Degree (Most Referenced)</h4>
+                    <div class="centrality-list">
+                        ${data.in_degree_centrality?.slice(0, 10).map((item, i) => `
+                            <div class="centrality-item">
+                                <span class="rank">${i + 1}</span>
+                                <span class="entity">${item.entity}</span>
+                                <span class="score">${item.score.toFixed(4)}</span>
+                            </div>
+                        `).join('') || '<div class="meta">No data</div>'}
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('[kg-gen] Centrality analysis failed:', error);
+            resultsContainer.innerHTML = '<div class="error-placeholder">Analysis failed. Please try again.</div>';
+        }
+    }
+
+    async function detectCommunities() {
+        const resultsContainer = document.getElementById('communityResults');
+        const methodSelect = document.getElementById('communityMethod');
+        if (!resultsContainer) return;
+
+        const graphData = window.lastLoadedGraph || lastGraphPayload;
+        if (!graphData) {
+            resultsContainer.innerHTML = '<div class="analysis-placeholder">No graph loaded.</div>';
+            return;
+        }
+
+        const method = methodSelect?.value || 'louvain';
+        resultsContainer.innerHTML = '<div class="loading-placeholder">Detecting communities...</div>';
+
+        try {
+            const response = await fetch(`/api/analysis/communities?method=${method}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(graphData)
+            });
+            
+            const data = await response.json();
+            
+            resultsContainer.innerHTML = `
+                <div class="community-summary">
+                    <div class="stat-card">
+                        <div class="stat-value">${data.num_communities}</div>
+                        <div>Communities</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.modularity?.toFixed(3) || 'N/A'}</div>
+                        <div>Modularity</div>
+                    </div>
+                </div>
+                <div class="community-list">
+                    ${data.communities?.map((comm, i) => `
+                        <div class="community-item">
+                            <div class="community-header">
+                                <strong>Community ${comm.id + 1}</strong>
+                                <span class="badge">${comm.size} members</span>
+                            </div>
+                            <div class="community-members">
+                                ${comm.sample_members?.join(', ') || 'No members'}
+                                ${comm.size > 10 ? `<span class="more">+${comm.size - 10} more</span>` : ''}
+                            </div>
+                        </div>
+                    `).join('') || '<div class="meta">No communities detected</div>'}
+                </div>
+            `;
+        } catch (error) {
+            console.error('[kg-gen] Community detection failed:', error);
+            resultsContainer.innerHTML = '<div class="error-placeholder">Detection failed. Please try again.</div>';
+        }
+    }
+
+    async function findPath() {
+        const resultsContainer = document.getElementById('pathResults');
+        const sourceInput = document.getElementById('pathSource');
+        const targetInput = document.getElementById('pathTarget');
+        const findAllCheckbox = document.getElementById('findAllPaths');
+
+        if (!resultsContainer || !sourceInput || !targetInput) return;
+
+        const source = sourceInput.value.trim();
+        const target = targetInput.value.trim();
+
+        if (!source || !target) {
+            resultsContainer.innerHTML = '<div class="error-placeholder">Please enter both source and target entities.</div>';
+            return;
+        }
+
+        const graphData = window.lastLoadedGraph || lastGraphPayload;
+        if (!graphData) {
+            resultsContainer.innerHTML = '<div class="analysis-placeholder">No graph loaded.</div>';
+            return;
+        }
+
+        resultsContainer.innerHTML = '<div class="loading-placeholder">Finding path...</div>';
+
+        try {
+            const requestBody = {
+                source: source,
+                target: target,
+                find_all: findAllCheckbox?.checked || false,
+                max_length: 5
+            };
+
+            const response = await fetch('/api/analysis/path', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...graphData, ...requestBody })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Path not found');
+            }
+
+            const data = await response.json();
+
+            if (data.paths) {
+                resultsContainer.innerHTML = `
+                    <div class="path-summary">Found ${data.num_paths} path(s)</div>
+                    <div class="paths-list">
+                        ${data.paths.map((p, i) => `
+                            <div class="path-item">
+                                <div class="path-header">Path ${i + 1} (${p.length} hops)</div>
+                                <div class="path-visualization">
+                                    ${p.path.map((node, j) => `
+                                        <span class="path-node">${node}</span>
+                                        ${j < p.path.length - 1 ? `<span class="path-arrow">→</span>` : ''}
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else if (data.path) {
+                resultsContainer.innerHTML = `
+                    <div class="path-summary">Shortest path found (${data.path_length} hops)</div>
+                    <div class="path-visualization">
+                        ${data.path.map((node, i) => `
+                            <span class="path-node">${node}</span>
+                            ${i < data.path.length - 1 ? `<span class="path-arrow">→</span>` : ''}
+                        `).join('')}
+                    </div>
+                    ${data.path_with_relations ? `
+                        <div class="path-relations">
+                            ${data.path_with_relations.map(r => `
+                                <div class="relation-step">${r.from} <span class="relation-label">${r.relation}</span> ${r.to}</div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                `;
+            } else {
+                resultsContainer.innerHTML = '<div class="analysis-placeholder">No path found between these entities.</div>';
+            }
+        } catch (error) {
+            console.error('[kg-gen] Path finding failed:', error);
+            resultsContainer.innerHTML = `<div class="error-placeholder">${error.message}</div>`;
+        }
+    }
+
+    function populateEntitySuggestions() {
+        const datalist = document.getElementById('entitySuggestions');
+        if (!datalist) return;
+
+        const graphData = window.lastLoadedGraph || lastGraphPayload;
+        if (!graphData?.entities) return;
+
+        const entities = Array.isArray(graphData.entities) 
+            ? graphData.entities 
+            : Array.from(graphData.entities || []);
+
+        datalist.innerHTML = entities.slice(0, 100).map(e => `<option value="${e}">`).join('');
+    }
+
+    function formatDate(isoString) {
+        if (!isoString) return 'Unknown';
+        const date = new Date(isoString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function sanitizeGraphId(name) {
+        if (!name) return '';
+        return name
+            .toLowerCase()
+            .replace(/[^\w\-]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_+|_+$/g, '')
+            .slice(0, 64);
+    }
+
+    // Check Azure configuration on page load
+    async function checkAzureConfig() {
+        try {
+            const response = await fetch('/api/config');
+            const config = await response.json();
+            
+            window.azureConfigured = config.azure_openai_configured;
+            
+            const statusEl = document.getElementById('azureConfigStatus');
+            if (statusEl && config.azure_openai_configured) {
+                statusEl.innerHTML = '<span class="config-badge success">Azure OpenAI configured</span>';
+            }
+        } catch (error) {
+            console.warn('[kg-gen] Failed to check config:', error);
+        }
+    }
+
+    // Load saved graphs into merge dropdown
+    async function loadMergeOptions() {
+        const mergeSelect = document.getElementById('mergeWithGraph');
+        if (!mergeSelect) return;
+
+        try {
+            const response = await fetch('/api/graphs');
+            const data = await response.json();
+            
+            mergeSelect.innerHTML = '<option value="">Create new graph</option>';
+            
+            if (data.graphs) {
+                data.graphs.forEach(graph => {
+                    const option = document.createElement('option');
+                    option.value = graph.id;
+                    option.textContent = `Merge with: ${graph.name || graph.id}`;
+                    mergeSelect.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.warn('[kg-gen] Failed to load merge options:', error);
+        }
+    }
+
+    // Extend generateFromText to handle new features
+    const originalGenerateFromText = window.generateFromText;
+    window.generateFromText = function() {
+        originalGenerateFromText();
+        
+        setTimeout(() => {
+            checkAzureConfig();
+            loadMergeOptions();
+        }, 100);
+    };
+})();

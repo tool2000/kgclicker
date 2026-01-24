@@ -69,22 +69,20 @@ class DeduplicateList:
         deduplication_result = semhash.self_deduplicate(threshold=self.threshold)
 
         self.deduplicated_items = len(deduplication_result.selected)
-        self.duplicate_items = len(deduplication_result.duplicates)
-        self.reduction = (self.duplicate_items / self.total_items) * 100
+        self.duplicate_items = len(deduplication_result.filtered)
+        self.reduction = (self.duplicate_items / self.total_items) * 100 if self.total_items > 0 else 0
 
-        # Map back to original strings
-        duplicates = deduplication_result.duplicates
-        for duplicate in duplicates:
+        # Map back to original strings using filtered duplicates
+        # filtered contains DuplicateRecord objects with (record, duplicates) where
+        # duplicates is a list of (matched_record, similarity_score) tuples
+        for duplicate in deduplication_result.filtered:
             original = duplicate.record
             # Check if duplicates list is not empty before accessing
-            if (
-                duplicate.duplicates
-                and len(duplicate.duplicates) > 0
-                and len(duplicate.duplicates[0]) > 0
-            ):
+            if duplicate.duplicates and len(duplicate.duplicates) > 0:
+                # duplicates is list of (record, score) tuples
                 duplicate_value = duplicate.duplicates[0][0]
-                self.items_map[original] = self.items_map[duplicate_value]
-                if not original in self.duplicates:
+                self.items_map[original] = self.items_map.get(duplicate_value, duplicate_value)
+                if original not in self.duplicates:
                     self.duplicates[original] = duplicate_value
 
         self.deduplicated = deduplication_result.selected
