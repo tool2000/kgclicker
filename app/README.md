@@ -13,6 +13,7 @@ pip install -e .
 pip install fastapi uvicorn[standard]
 
 # 2. Launch the app server
+source .venv/bin/activate
 uvicorn app.server:app --reload --port 8000
 ```
 
