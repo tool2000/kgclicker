@@ -98,8 +98,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize KGGen - will be configured with Azure OpenAI if env vars are set
-kg_gen = KGGen()
+# Initialize KGGen with Azure OpenAI if env vars are set
+_init_azure = _get_azure_config()
+if _init_azure:
+    kg_gen = KGGen(
+        model=_init_azure["model"],
+        api_key=_init_azure["api_key"],
+        api_base=_init_azure["api_base"],
+        api_version=_init_azure.get("api_version"),
+    )
+else:
+    kg_gen = KGGen()
 
 # Initialize graph storage
 storage = get_storage(STORAGE_DIR)

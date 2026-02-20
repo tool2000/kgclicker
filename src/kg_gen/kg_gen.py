@@ -34,16 +34,18 @@ class KGGen:
         reasoning_effort: str = None,
         api_key: str = None,
         api_base: str = None,
+        api_version: str = None,
         retrieval_model: Optional[str] = None,
         disable_cache: bool = False,
     ):
         """Initialize KGGen with optional model configuration
 
         Args:
-            model: Name of model to use (e.g. 'gpt-4')
+            model: Name of model to use (e.g. 'gpt-4', 'azure/my-deployment')
             temperature: Temperature for model sampling
             api_key: API key for model access
             api_base: Specify the base URL endpoint for making API calls to a language model service
+            api_version: API version for Azure OpenAI (e.g. '2025-03-01-preview')
         """
         self.model = model
         self.reasoning_effort = reasoning_effort
@@ -51,6 +53,7 @@ class KGGen:
         self.temperature = temperature
         self.api_key = api_key
         self.api_base = api_base
+        self.api_version = api_version
         self.retrieval_model: Optional[SentenceTransformer] = None
         self.lm = None
         self.disable_cache = disable_cache
@@ -62,6 +65,7 @@ class KGGen:
             temperature=temperature,
             api_key=api_key,
             api_base=api_base,
+            api_version=api_version,
             retrieval_model=retrieval_model,
         )
 
@@ -82,18 +86,19 @@ class KGGen:
         retrieval_model: str = None,
         api_key: str = None,
         api_base: str = None,
+        api_version: str = None,
     ):
         """Initialize or reinitialize the model with new parameters
 
         Args:
-            model: Name of model to use (e.g. 'gpt-4')
+            model: Name of model to use (e.g. 'gpt-4', 'azure/my-deployment')
             temperature: Temperature for model sampling
             api_key: API key for model access
             api_base: API base for model access
+            api_version: API version for Azure OpenAI
             retrieval_model: Name of retrieval model to use
             reasoning_effort: Reasoning effort for model
             max_tokens: Maximum tokens for model
-            temperature: Temperature for model sampling
         """
 
         # Update instance variables if new values provided
@@ -105,6 +110,8 @@ class KGGen:
             self.api_key = api_key
         if api_base is not None:
             self.api_base = api_base
+        if api_version is not None:
+            self.api_version = api_version
         if temperature is not None:
             self.temperature = temperature
         if reasoning_effort is not None:
@@ -115,32 +122,23 @@ class KGGen:
         self.validate_temperature(self.temperature)
         self.validate_max_tokens(self.max_tokens)
 
-        # Initialize dspy LM with current settings
+        # Build common dspy.LM kwargs
+        lm_kwargs = dict(
+            model=self.model,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            api_base=self.api_base,
+            cache=not self.disable_cache,
+            model_type="responses" if self.model.startswith("openai/") else "chat",
+        )
         if self.api_key:
-            self.lm = dspy.LM(
-                model=self.model,
-                api_key=self.api_key,
-                reasoning={"effort": self.reasoning_effort}
-                if self.reasoning_effort
-                else None,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                api_base=self.api_base,
-                cache=not self.disable_cache,
-                model_type="responses" if self.model.startswith("openai/") else "chat",
-            )
-        else:
-            self.lm = dspy.LM(
-                model=self.model,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                api_base=self.api_base,
-                reasoning={"effort": self.reasoning_effort}
-                if self.reasoning_effort
-                else None,
-                cache=not self.disable_cache,
-                model_type="responses" if self.model.startswith("openai/") else "chat",
-            )
+            lm_kwargs["api_key"] = self.api_key
+        if self.reasoning_effort:
+            lm_kwargs["reasoning"] = {"effort": self.reasoning_effort}
+        if self.api_version:
+            lm_kwargs["api_version"] = self.api_version
+
+        self.lm = dspy.LM(**lm_kwargs)
 
     @staticmethod
     def from_file(file_path: str) -> Graph:
@@ -210,6 +208,7 @@ class KGGen:
                 api_key=api_key or self.api_key,
                 api_base=api_base or self.api_base,
                 reasoning_effort=reasoning_effort or self.reasoning_effort,
+                api_version=self.api_version,
             )
 
         def _process(content, lm):
@@ -307,6 +306,7 @@ class KGGen:
                 temperature=temperature or self.temperature,
                 api_key=api_key or self.api_key,
                 api_base=api_base or self.api_base,
+                api_version=self.api_version,
             )
 
         return run_deduplication(

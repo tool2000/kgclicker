@@ -44,10 +44,25 @@ def initialize_kg_gen():
     global kg_gen_instance, memory_graph, storage_path
 
     # Get configuration from environment variables
-    model = os.environ.get("KG_MODEL", "openai/gpt-4o")
+    model = os.environ.get("KG_MODEL")
     api_key = os.environ.get("KG_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    api_base = os.environ.get("KG_API_BASE")
+    api_version = None
     storage_path = os.environ.get("KG_STORAGE_PATH", "./kg_memory.json")
     clear_memory = os.environ.get("KG_CLEAR_MEMORY", "false").lower() == "true"
+
+    # Fall back to Azure config if no explicit model set
+    if not model:
+        azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+        azure_deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT")
+        azure_key = os.environ.get("AZURE_OPENAI_API_KEY")
+        if azure_endpoint and azure_deployment and azure_key:
+            model = f"azure/{azure_deployment}"
+            api_key = azure_key
+            api_base = azure_endpoint.rstrip("/")
+            api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-03-01-preview")
+
+    model = model or "openai/gpt-4o"
 
     # Ensure storage path is absolute for consistent behavior
     if not os.path.isabs(storage_path):
@@ -65,7 +80,13 @@ def initialize_kg_gen():
             print(f"Warning: Could not clear memory file: {e}")
 
     # Initialize KGGen
-    kg_gen_instance = KGGen(model=model, temperature=0.0, api_key=api_key)
+    kg_gen_instance = KGGen(
+        model=model,
+        temperature=0.0,
+        api_key=api_key,
+        api_base=api_base,
+        api_version=api_version,
+    )
 
     # Load existing memory graph if it exists
     load_memory_graph()
