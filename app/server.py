@@ -900,7 +900,7 @@ async def rag_query(request: RagQueryRequest) -> JSONResponse:
 
     litellm_kwargs = {
         "model": effective_model,
-        "input": [
+        "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
         ],
@@ -912,8 +912,8 @@ async def rag_query(request: RagQueryRequest) -> JSONResponse:
         litellm_kwargs["api_version"] = api_version
 
     try:
-        response = litellm.responses(**litellm_kwargs)
-        answer = _extract_litellm_text(response)
+        response = litellm.completion(**litellm_kwargs)
+        answer = response.choices[0].message.content
     except Exception as exc:
         logger.exception("RAG answer generation failed")
         raise HTTPException(status_code=500, detail=f"Answer generation failed: {exc}")

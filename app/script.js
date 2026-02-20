@@ -2717,7 +2717,13 @@
                     retrieval_model: retrievalModelSelect.value
                 })
             });
-            const data = await response.json();
+            const rawBody = await response.text();
+            let data;
+            try {
+                data = JSON.parse(rawBody);
+            } catch (e) {
+                throw new Error(rawBody || `Server error (${response.status})`);
+            }
             if (!response.ok) {
                 const message = data?.detail || data?.error || 'RAG failed';
                 throw new Error(message);
