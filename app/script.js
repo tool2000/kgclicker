@@ -236,7 +236,37 @@
 
     function setStatus(message, type = 'info') {
         // no operation per now
+    }
 
+    function showToast(message, type = 'info') {
+        const existing = document.getElementById('kg-toast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.id = 'kg-toast';
+        toast.textContent = message;
+        Object.assign(toast.style, {
+            position: 'fixed',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            color: '#fff',
+            fontSize: '14px',
+            fontWeight: '500',
+            zIndex: '10000',
+            opacity: '0',
+            transition: 'opacity 0.3s ease',
+            background: type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        });
+        document.body.appendChild(toast);
+        requestAnimationFrame(() => { toast.style.opacity = '1'; });
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 
     function sanitizeGraphForBackend(rawGraph) {
@@ -1647,6 +1677,12 @@
             hideGenerateError();
             await renderView(payload.view, payload.graph);
             currentGraphId = graphIdValue ? sanitizeGraphId(graphIdValue) : null;
+
+            // Close the generate modal and show success toast
+            if (typeof modalTextGenerator !== 'undefined' && modalTextGenerator) {
+                modalTextGenerator.close();
+            }
+            showToast('Graph generated successfully!', 'success');
         } catch (error) {
             console.error(error);
             const errorMessage = 'Generation failed: ' + (error.message || 'Unknown error');
