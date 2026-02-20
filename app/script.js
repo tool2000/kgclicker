@@ -1532,7 +1532,7 @@
 
         const apiKey = apiKeyInput.value.trim();
         const pastedText = sourceText.value.trim();
-        const textFile = textFileInput.files?.[0];
+        const selectedFiles = textFileInput.files || [];
         const chunkSizeValue = chunkSizeInput.value.trim();
         const temperatureValue = temperatureInput.value.trim();
         const mergeWithValue = mergeWithGraphInput?.value || '';
@@ -1541,15 +1541,15 @@
             graphIdValue = mergeWithValue;
         }
 
-        if (!apiKey) {
-            const errorMessage = 'Enter your OpenAI API key to generate a graph.';      
+        if (!apiKey && !window.azureConfigured) {
+            const errorMessage = 'Enter your OpenAI API key to generate a graph.';
             setStatus(errorMessage, 'error');
             showGenerateError(errorMessage);
             return;
         }
 
-        if (!pastedText && !textFile) {
-            const errorMessage = 'Provide some text or upload a .txt file.';
+        if (!pastedText && selectedFiles.length === 0) {
+            const errorMessage = 'Provide some text or upload a file.';
             setStatus(errorMessage, 'error');
             showGenerateError(errorMessage);
             return;
@@ -1566,6 +1566,7 @@
         generateButton.disabled = true;
         generateButton.textContent = 'Generating...';
 
+        const useMultiUpload = selectedFiles.length > 1;
         const formData = new FormData();
         formData.append('api_key', apiKey);
         formData.append('model', modelSelect.value);
@@ -1574,8 +1575,12 @@
         if (pastedText) {
             formData.append('source_text', pastedText);
         }
-        if (textFile) {
-            formData.append('text_file', textFile);
+        if (useMultiUpload) {
+            for (const file of selectedFiles) {
+                formData.append('files', file);
+            }
+        } else if (selectedFiles.length === 1) {
+            formData.append('text_file', selectedFiles[0]);
         }
         if (contextInput.value.trim()) {
             formData.append('context', contextInput.value.trim());
@@ -1593,13 +1598,15 @@
             formData.append('merge_with', mergeWithValue);
         }
 
+        const endpoint = useMultiUpload ? '/api/documents/upload-multiple' : '/api/generate';
         setStatus('Generating graph with KGGen...');
         console.info('[kg-gen] Submitting generate request', {
+            endpoint,
             model: modelSelect.value,
             cluster: clusterToggle.checked,
             retrievalModel: retrievalModelSelect.value,
             hasText: Boolean(pastedText),
-            hasFile: Boolean(textFile)
+            fileCount: selectedFiles.length
         });
 
         showLoadingInViewer('Generating Graph', 'Running KGGen on your text. This may take a few minutes...');
@@ -1608,7 +1615,7 @@
         }
 
         try {
-            const response = await fetch('/api/generate', {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 body: formData
             });
@@ -2103,20 +2110,17 @@
 
             graphDropZoneText.addEventListener('drop', event => {
                 if (!graphDropZoneText.classList.contains('disabled')) {
-                    const [file] = event.dataTransfer.files;
-                    if (file && file.type === 'text/plain') {
-                        // Create a FileList-like object and assign it to the input
+                    const droppedFiles = event.dataTransfer.files;
+                    if (droppedFiles.length > 0) {
                         const dataTransfer = new DataTransfer();
-                        dataTransfer.items.add(file);
+                        for (const file of droppedFiles) {
+                            dataTransfer.items.add(file);
+                        }
                         textFileInput.files = dataTransfer.files;
-                        
-                        // Update drop zone text to show loaded filename
-                        updateDropZoneText(file.name);
-                        
-                        // Disable textarea
+
+                        const names = Array.from(droppedFiles).map(f => f.name);
+                        updateDropZoneText(names.length === 1 ? names[0] : `${names.length} files selected`);
                         toggleTextareaState(true);
-                        
-                        // Trigger change event to update the UI
                         textFileInput.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                 }
@@ -2126,9 +2130,10 @@
         // Add change event listener for text file input
         if (textFileInput) {
             textFileInput.addEventListener('change', event => {
-                const file = event.target.files[0];
-                if (file) {
-                    updateDropZoneText(file.name);
+                const files = event.target.files;
+                if (files && files.length > 0) {
+                    const label = files.length === 1 ? files[0].name : `${files.length} files selected`;
+                    updateDropZoneText(label);
                     toggleTextareaState(true);
                 } else {
                     updateDropZoneText(null);
@@ -2969,12 +2974,34 @@
         try {
             const response = await fetch('/api/config');
             const config = await response.json();
-            
+
             window.azureConfigured = config.azure_openai_configured;
-            
+
             const statusEl = document.getElementById('azureConfigStatus');
-            if (statusEl && config.azure_openai_configured) {
-                statusEl.innerHTML = '<span class="config-badge success">Azure OpenAI configured</span>';
+            if (config.azure_openai_configured) {
+                if (statusEl) {
+                    statusEl.innerHTML = '<span class="config-badge success">Azure OpenAI configured</span>';
+                }
+
+                // Add Azure model to dropdown as first option and select it
+                const ms = document.getElementById('model');
+                if (ms && config.azure_model) {
+                    const label = config.azure_model.replace('azure/', 'Azure ') + ' (configured)';
+                    // Only add if not already present
+                    if (!ms.querySelector('option[value="' + config.azure_model + '"]')) {
+                        const opt = document.createElement('option');
+                        opt.value = config.azure_model;
+                        opt.textContent = label;
+                        ms.insertBefore(opt, ms.firstChild);
+                    }
+                    ms.value = config.azure_model;
+                }
+
+                // Set API key placeholder to indicate Azure is active
+                const akInput = document.getElementById('apiKey');
+                if (akInput) {
+                    akInput.placeholder = 'Using Azure OpenAI (leave empty)';
+                }
             }
         } catch (error) {
             console.warn('[kg-gen] Failed to check config:', error);

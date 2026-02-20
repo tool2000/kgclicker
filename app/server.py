@@ -89,6 +89,27 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
+def _get_azure_config() -> dict:
+    """Get Azure OpenAI configuration from environment variables."""
+    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT")
+    api_key = os.environ.get("AZURE_OPENAI_API_KEY")
+    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-03-01-preview")
+
+    if endpoint and deployment and api_key:
+        normalized_endpoint = endpoint.rstrip('/')
+        if "/openai/deployments/" in normalized_endpoint:
+            normalized_endpoint = normalized_endpoint.split("/openai/deployments/")[0]
+        base_url = normalized_endpoint
+        return {
+            "api_key": api_key,
+            "api_base": base_url,
+            "model": f"azure/{deployment}",
+            "api_version": api_version,
+        }
+    return {}
+
+
 app = FastAPI(title="kg-gen explorer")
 app.add_middleware(
     CORSMiddleware,
@@ -178,27 +199,6 @@ def _parse_bool(value: Optional[str]) -> bool:
     if value is None:
         return False
     return value.lower() in {"true", "1", "yes", "on"}
-
-
-def _get_azure_config() -> dict:
-    """Get Azure OpenAI configuration from environment variables."""
-    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
-    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT")
-    api_key = os.environ.get("AZURE_OPENAI_API_KEY")
-    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-03-01-preview")
-
-    if endpoint and deployment and api_key:
-        normalized_endpoint = endpoint.rstrip('/')
-        if "/openai/deployments/" in normalized_endpoint:
-            normalized_endpoint = normalized_endpoint.split("/openai/deployments/")[0]
-        base_url = normalized_endpoint
-        return {
-            "api_key": api_key,
-            "api_base": base_url,
-            "model": f"azure/{deployment}",
-            "api_version": api_version,
-        }
-    return {}
 
 
 def _extract_litellm_text(response: object) -> str:
@@ -393,14 +393,19 @@ async def generate_graph(
                 status_code=400, detail=f"temperature must be numeric: {exc}"
             )
 
-    # Validate temperature for gpt-5 family models
-    if effective_model and "gpt-5" in effective_model:
+    # Validate temperature for gpt-5 reasoning models (not chat/5.2+ variants)
+    _is_gpt5_reasoning = (
+        effective_model
+        and "gpt-5" in effective_model
+        and "gpt-5.2" not in effective_model
+        and "gpt-5-chat" not in effective_model
+    )
+    if _is_gpt5_reasoning:
         if numeric_temperature is not None and numeric_temperature < 1.0:
             raise HTTPException(
                 status_code=400,
-                detail="Temperature must be 1.0 or higher for gpt-5 family models",
+                detail="Temperature must be 1.0 or higher for gpt-5 reasoning models",
             )
-        # Set default temperature to 1.0 for gpt-5 models if not specified
         if numeric_temperature is None:
             numeric_temperature = 1.0
 
@@ -540,7 +545,12 @@ async def extract_document_text(
 async def upload_multiple_documents(
     files: List[UploadFile] = File(..., description="Multiple documents to process"),
     api_key: Optional[str] = Form(None),
+    model: str = Form("openai/gpt-4o"),
     context: Optional[str] = Form(None),
+    chunk_size: Optional[str] = Form(None),
+    temperature: Optional[str] = Form(None),
+    cluster: Optional[str] = Form(None),
+    retrieval_model: Optional[str] = Form("sentence-transformers/all-mpnet-base-v2"),
     graph_id: Optional[str] = Form(None),
     merge_with: Optional[str] = Form(None),
 ) -> JSONResponse:
@@ -551,7 +561,7 @@ async def upload_multiple_documents(
     # Check for Azure OpenAI configuration
     azure_config = _get_azure_config()
     effective_api_key = api_key or azure_config.get("api_key")
-    effective_model = azure_config.get("model", "openai/gpt-4o")
+    effective_model = azure_config.get("model") if azure_config else model
     effective_api_base = azure_config.get("api_base")
 
     if not effective_api_key:
@@ -592,17 +602,34 @@ async def upload_multiple_documents(
 
     combined_text = "\n\n".join(text_fragments)
 
+    numeric_temperature = None
+    if temperature:
+        try:
+            numeric_temperature = float(temperature)
+        except ValueError:
+            pass
+
+    numeric_chunk = None
+    if chunk_size:
+        try:
+            numeric_chunk = int(chunk_size)
+        except ValueError:
+            pass
+
     kg_gen.init_model(
         model=effective_model,
         api_key=effective_api_key,
         api_base=effective_api_base,
+        temperature=numeric_temperature,
+        retrieval_model=retrieval_model,
     )
 
     try:
         graph = kg_gen.generate(
             input_data=combined_text,
             context=_clean_str(context) or "",
-            chunk_size=8000,  # Use chunking for multiple docs
+            chunk_size=numeric_chunk or 8000,
+            temperature=numeric_temperature,
         )
     except Exception as exc:
         logger.exception("Graph generation failed")
@@ -1006,6 +1033,7 @@ async def get_config() -> JSONResponse:
     azure_config = _get_azure_config()
     return JSONResponse({
         "azure_openai_configured": bool(azure_config),
+        "azure_model": azure_config.get("model") if azure_config else None,
         "azure_deployment": azure_config.get("model", "").replace("azure/", "") if azure_config else None,
         "supported_document_formats": sorted(list(SUPPORTED_EXTENSIONS)),
         "storage_path": str(STORAGE_DIR),

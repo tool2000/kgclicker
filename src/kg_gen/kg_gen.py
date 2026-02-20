@@ -69,13 +69,18 @@ class KGGen:
             retrieval_model=retrieval_model,
         )
 
+    def _is_gpt5_reasoning_model(self) -> bool:
+        """Check if model is a gpt-5 reasoning variant (not chat/5.2+)."""
+        model_lower = self.model.lower()
+        return "gpt-5" in model_lower and "gpt-5.2" not in model_lower and "gpt-5-chat" not in model_lower
+
     def validate_temperature(self, temperature: float):
-        if "gpt-5" in self.model and temperature < 1.0:
-            raise ValueError("Temperature must be 1.0 for gpt-5 family models")
+        if self._is_gpt5_reasoning_model() and temperature < 1.0:
+            raise ValueError("Temperature must be 1.0 for gpt-5 reasoning models")
 
     def validate_max_tokens(self, max_tokens: int):
-        if "gpt-5" in self.model and max_tokens < 16000:
-            raise ValueError("Max tokens must be 16000 for gpt-5 family models")
+        if self._is_gpt5_reasoning_model() and max_tokens < 16000:
+            raise ValueError("Max tokens must be 16000 for gpt-5 reasoning models")
 
     def init_model(
         self,
