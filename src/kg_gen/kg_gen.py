@@ -130,11 +130,18 @@ class KGGen:
         self.validate_temperature(self.temperature)
         self.validate_max_tokens(self.max_tokens)
 
+        # DSPy enforces temperature=1.0 and max_tokens>=16000 for any model
+        # containing "gpt-5". Override for DSPy while keeping the real values
+        # on self for direct litellm calls.
+        is_gpt5_family = "gpt-5" in self.model.lower()
+        dspy_temperature = 1.0 if is_gpt5_family else self.temperature
+        dspy_max_tokens = max(self.max_tokens, 16000) if is_gpt5_family else self.max_tokens
+
         # Build common dspy.LM kwargs
         lm_kwargs = dict(
             model=self.model,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
+            temperature=dspy_temperature,
+            max_tokens=dspy_max_tokens,
             api_base=self.api_base,
             cache=not self.disable_cache,
             model_type="responses" if self.model.startswith("openai/") else "chat",
