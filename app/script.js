@@ -1627,6 +1627,9 @@
         if (mergeWithValue) {
             formData.append('merge_with', mergeWithValue);
         }
+        const vectorIndexToggle = document.getElementById('vectorIndexToggle');
+        const buildVectorIndex = vectorIndexToggle ? vectorIndexToggle.checked : true;
+        formData.append('build_vector_index', buildVectorIndex ? 'true' : 'false');
 
         const endpoint = useMultiUpload ? '/api/documents/upload-multiple' : '/api/generate';
         setStatus('Generating graph with KGGen...');
@@ -1676,13 +1679,16 @@
             console.info('[kg-gen] Generation succeeded');
             hideGenerateError();
             await renderView(payload.view, payload.graph);
-            currentGraphId = graphIdValue ? sanitizeGraphId(graphIdValue) : null;
+            currentGraphId = payload.graph_id || (graphIdValue ? sanitizeGraphId(graphIdValue) : null);
 
             // Close the generate modal and show success toast
             if (typeof modalTextGenerator !== 'undefined' && modalTextGenerator) {
                 modalTextGenerator.close();
             }
-            showToast('Graph generated successfully!', 'success');
+            const toastMsg = payload.graph_id
+                ? `Graph generated and saved as "${payload.graph_id}"!`
+                : 'Graph generated successfully!';
+            showToast(toastMsg, 'success');
         } catch (error) {
             console.error(error);
             const errorMessage = 'Generation failed: ' + (error.message || 'Unknown error');

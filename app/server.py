@@ -5,6 +5,7 @@ from typing import Optional, List
 import json
 import os
 import re
+import uuid
 
 import logging
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, Query
@@ -311,6 +312,7 @@ async def generate_graph(
     retrieval_model: Optional[str] = Form("sentence-transformers/all-mpnet-base-v2"),
     graph_id: Optional[str] = Form(None, description="Save graph with this ID"),
     merge_with: Optional[str] = Form(None, description="Merge with existing graph ID"),
+    build_vector_index: Optional[str] = Form("true", description="Build vector index for RAG"),
 ) -> JSONResponse:
     """Generate a knowledge graph from text or documents."""
     text_fragments: list[str] = []
@@ -456,9 +458,16 @@ async def generate_graph(
                 source_documents
             ))
 
-    # Save graph if graph_id provided
+    # Auto-generate graph_id if vector index requested but no id given
+    want_vector = _parse_bool(build_vector_index)
+    if not graph_id and want_vector:
+        graph_id = f"graph-{uuid.uuid4().hex[:8]}"
+
+    # Save graph if graph_id provided (or auto-generated)
+    saved_graph_id = None
     if graph_id:
         sanitized_id = _sanitize_graph_id(graph_id)
+        saved_graph_id = sanitized_id
         storage.save(
             graph,
             graph_id=sanitized_id,
@@ -467,16 +476,18 @@ async def generate_graph(
         )
         logger.info(f"Saved graph as '{sanitized_id}'")
 
-        try:
-            vector_meta = vector_store.build_index(
-                sanitized_id,
-                request_text,
-                retrieval_model,
-                numeric_chunk or 800,
-            )
-            storage.update_vector_index(sanitized_id, vector_meta.__dict__)
-        except Exception as exc:
-            logger.warning("Vector index build failed for %s: %s", sanitized_id, exc)
+        if want_vector:
+            try:
+                vector_meta = vector_store.build_index(
+                    sanitized_id,
+                    request_text,
+                    retrieval_model,
+                    numeric_chunk or 800,
+                )
+                storage.update_vector_index(sanitized_id, vector_meta.__dict__)
+                logger.info(f"Vector index built for '{sanitized_id}'")
+            except Exception as exc:
+                logger.warning("Vector index build failed for %s: %s", sanitized_id, exc)
 
     try:
         view = _build_view_model(graph)
@@ -489,7 +500,10 @@ async def generate_graph(
         len(graph.entities),
         len(graph.relations),
     )
-    return JSONResponse({"view": view, "graph": graph.model_dump(mode="json")})
+    result = {"view": view, "graph": graph.model_dump(mode="json")}
+    if saved_graph_id:
+        result["graph_id"] = saved_graph_id
+    return JSONResponse(result)
 
 
 # =============================================================================
@@ -555,6 +569,7 @@ async def upload_multiple_documents(
     retrieval_model: Optional[str] = Form("sentence-transformers/all-mpnet-base-v2"),
     graph_id: Optional[str] = Form(None),
     merge_with: Optional[str] = Form(None),
+    build_vector_index: Optional[str] = Form("true"),
 ) -> JSONResponse:
     """Upload multiple documents and generate a combined knowledge graph."""
     if not files:
@@ -647,9 +662,16 @@ async def upload_multiple_documents(
                 source_documents
             ))
 
-    # Save graph if graph_id provided
+    # Auto-generate graph_id if vector index requested but no id given
+    want_vector = _parse_bool(build_vector_index)
+    if not graph_id and want_vector:
+        graph_id = f"graph-{uuid.uuid4().hex[:8]}"
+
+    # Save graph if graph_id provided (or auto-generated)
+    saved_graph_id = None
     if graph_id:
         sanitized_id = _sanitize_graph_id(graph_id)
+        saved_graph_id = sanitized_id
         storage.save(
             graph,
             graph_id=sanitized_id,
@@ -657,25 +679,30 @@ async def upload_multiple_documents(
             source_documents=source_documents,
         )
 
-        try:
-            vector_meta = vector_store.build_index(
-                sanitized_id,
-                combined_text,
-                "sentence-transformers/all-mpnet-base-v2",
-                800,
-            )
-            storage.update_vector_index(sanitized_id, vector_meta.__dict__)
-        except Exception as exc:
-            logger.warning("Vector index build failed for %s: %s", sanitized_id, exc)
+        if want_vector:
+            try:
+                vector_meta = vector_store.build_index(
+                    sanitized_id,
+                    combined_text,
+                    retrieval_model,
+                    numeric_chunk or 800,
+                )
+                storage.update_vector_index(sanitized_id, vector_meta.__dict__)
+                logger.info(f"Vector index built for '{sanitized_id}'")
+            except Exception as exc:
+                logger.warning("Vector index build failed for %s: %s", sanitized_id, exc)
 
     view = _build_view_model(graph)
 
-    return JSONResponse({
+    result = {
         "view": view,
         "graph": graph.model_dump(mode="json"),
         "processed_files": source_documents,
         "errors": errors if errors else None,
-    })
+    }
+    if saved_graph_id:
+        result["graph_id"] = saved_graph_id
+    return JSONResponse(result)
 
 
 # =============================================================================
