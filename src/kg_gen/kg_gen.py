@@ -8,8 +8,11 @@ from kg_gen.utils.chunk_text import chunk_text
 from kg_gen.utils.visualize_kg import visualize as visualize_kg
 from kg_gen.models import Graph
 import dspy
+import litellm
 import json
 import os
+
+litellm.drop_params = True
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import networkx as nx
 from sentence_transformers import SentenceTransformer

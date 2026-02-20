@@ -14,6 +14,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
 import litellm
 
+litellm.drop_params = True
+
 from kg_gen import KGGen
 from kg_gen.models import Graph
 from kg_gen.utils.visualize_kg import _build_view_model
